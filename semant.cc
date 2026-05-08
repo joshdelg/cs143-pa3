@@ -86,9 +86,8 @@ static void initialize_constants(void) {
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
-  /* Where we do the passes to collect everything. Also Validation of it, I think */
-    build_class_table(classes);
-    validate_class_table();
+    // One pass to collect all symbol names and build some sort of table (check for dupes)
+    // A second pass to build the inheritance graph itself, checking for cycles on the fly.
 }
 
 void ClassTable::install_basic_classes() {
@@ -197,14 +196,6 @@ void ClassTable::install_basic_classes() {
 	     filename);
 }
 
-void build_class_table(Classes classes) {
-    return NULL;
-}
-
-void validate_class_table() {
-    return NULL;
-}
-
 ////////////////////////////////////////////////////////////////////
 //
 // semant_error is an overloaded function for reporting errors
@@ -254,7 +245,7 @@ bool ClassTable::is_subclass(Symbol child, Symbol ancestor)
         }
         current_node = current_node->parent;
     }
-    
+
     return false;
 }
 

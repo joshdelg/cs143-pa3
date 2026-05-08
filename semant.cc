@@ -86,7 +86,9 @@ static void initialize_constants(void) {
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
-  /* Fill this in */
+  /* Where we do the passes to collect everything. Also Validation of it, I think */
+    build_class_table(classes);
+    validate_class_table();
 }
 
 void ClassTable::install_basic_classes() {
@@ -193,6 +195,14 @@ void ClassTable::install_basic_classes() {
 				   Str,
 				   no_expr()))),
 	     filename);
+}
+
+void build_class_table(Classes classes) {
+    return NULL;
+}
+
+void validate_class_table() {
+    return NULL;
 }
 
 ////////////////////////////////////////////////////////////////////

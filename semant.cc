@@ -88,6 +88,44 @@ static void initialize_constants(void) {
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     // One pass to collect all symbol names and build some sort of table (check for dupes)
     // A second pass to build the inheritance graph itself, checking for cycles on the fly.
+
+    install_basic_classes();
+
+    enterscope(); // global scope, we never actually use other scopes for the ClassTable
+
+    /* Build flat SymbolTable of our classes, essentially a mapping from class
+       name to orphan InheritanceNodes.
+    */
+    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+        Class_ c = classes->nth(i);
+        Symbol class_name = c->get_name();
+
+        // Build InheritanceNode
+        InheritanceNodeP new_node = new InheritanceNode(c);
+        new_node->class_node = c;
+        new_node->name = class_name;
+        new_node->parent = NULL;
+
+        // Check for duplicates
+        if (probe(class_name) != NULL) {
+            // error
+            return;
+        }
+
+        // Add to SymbolTable
+        addid(class_name, new_node);
+    }
+
+    /* Link our InheritanceNodes together. */
+    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+        Class_ c = classes->nth(i);
+        Symbol parent_name = c->get_parent();
+
+        InheritanceNodeP child_node = lookup(c->get_name());
+        InheritanceNodeP parent_node = lookup(parent_name);
+
+        child_node->parent = parent_node;
+    }
 }
 
 void ClassTable::install_basic_classes() {

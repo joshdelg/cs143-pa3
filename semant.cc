@@ -243,13 +243,37 @@ bool ClassTable::is_equal_class(Symbol a, Symbol b)
     return a == b;
 }
 
-bool ClassTable::is_subclass(Symbol a, Symbol b)
+bool ClassTable::is_subclass(Symbol child, Symbol ancestor)
 {
+    InheritanceNode *current_node = lookup(child);
+    InheritanceNode *ancestor_node = lookup(ancestor);
+
+    while (current_node != NULL) {
+        if (current_node->class_node == ancestor_node->class_node) {
+            return true;
+        }
+        current_node = current_node->parent;
+    }
+    
     return false;
 }
 
 Symbol ClassTable::class_join(Symbol a, Symbol b) 
 {
+    InheritanceNode *node_a = lookup(a);
+    InheritanceNode *node_b = lookup(b);
+
+    while (node_a != NULL) {
+        InheritanceNode *current_node_b = node_b;
+        while (current_node_b != NULL) {
+            if (node_a->class_node == current_node_b->class_node) {
+                return node_a->name;
+            }
+            current_node_b = current_node_b->parent;
+        }
+        node_a = node_a->parent;
+    }
+
     return NULL;
 }
 

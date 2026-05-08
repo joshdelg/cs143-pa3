@@ -97,6 +97,11 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         Class_ c = classes->nth(i);
         Symbol class_name = c->get_name();
 
+        if (class_name == SELF_TYPE) {
+            // error
+            return;
+        }
+
         /* Build InheritanceNode */
         InheritanceNodeP new_node = new InheritanceNode(c);
         new_node->class_node = c;
@@ -252,6 +257,39 @@ void ClassTable::install_basic_classes() {
 				   Str,
 				   no_expr()))),
 	     filename);
+
+
+
+    /* Add basic classes to ClassTable */
+    InheritanceNodeP object_node = new InheritanceNode(Object_class);
+    object_node->class_node = Object_class;
+    object_node->name = Object;
+    object_node->parent = NULL;
+    addid(Object, object_node);
+
+    InheritanceNodeP io_node = new InheritanceNode(IO_class);
+    io_node->class_node = IO_class;
+    io_node->name = IO;
+    io_node->parent = object_node;
+    addid(IO, io_node);
+
+    InheritanceNodeP int_node = new InheritanceNode(Int_class);
+    int_node->class_node = Int_class;
+    int_node->name = Int;
+    int_node->parent = object_node;
+    addid(Int, int_node);
+
+    InheritanceNodeP bool_node = new InheritanceNode(Bool_class);
+    bool_node->class_node = Bool_class;
+    bool_node->name = Bool;
+    bool_node->parent = object_node;
+    addid(Bool, bool_node);
+
+    InheritanceNodeP str_node = new InheritanceNode(Str_class);
+    str_node->class_node = Str_class;
+    str_node->name = Str;
+    str_node->parent = object_node;
+    addid(Str, str_node);
 }
 
 ////////////////////////////////////////////////////////////////////

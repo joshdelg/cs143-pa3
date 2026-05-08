@@ -15,6 +15,12 @@ typedef InheritanceNode *InheritanceNodeP;
 class ClassTable;
 typedef ClassTable *ClassTableP;
 
+class InheritanceNode {
+public:
+    Class_  class_node;
+    InheritanceNode *parent;
+};
+
 
 // This is a structure that may be used to contain the semantic
 // information such as the inheritance graph.  You may use it or not as
@@ -32,6 +38,10 @@ public:
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);
   std::ostream& semant_error(Symbol filename, tree_node *t);
+
+  bool is_equal_class(Symbol a, Symbol b);
+  bool is_subclass(Symbol a, Symbol b);
+  Symbol class_join(Symbol a, Symbol b);
 };
 
 

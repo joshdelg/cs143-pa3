@@ -86,9 +86,6 @@ static void initialize_constants(void) {
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
-    // One pass to collect all symbol names and build some sort of table (check for dupes)
-    // A second pass to build the inheritance graph itself, checking for cycles on the fly.
-
     install_basic_classes();
 
     enterscope(); // global scope, we never actually use other scopes for the ClassTable
@@ -100,19 +97,19 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         Class_ c = classes->nth(i);
         Symbol class_name = c->get_name();
 
-        // Build InheritanceNode
+        /* Build InheritanceNode */
         InheritanceNodeP new_node = new InheritanceNode(c);
         new_node->class_node = c;
         new_node->name = class_name;
         new_node->parent = NULL;
 
-        // Check for duplicates
+        /* Check for duplicates */
         if (probe(class_name) != NULL) {
             // error
             return;
         }
 
-        // Add to SymbolTable
+        /* Add to SymbolTable */
         addid(class_name, new_node);
     }
 
@@ -126,6 +123,29 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
 
         child_node->parent = parent_node;
     }
+
+    /* Check for cycles */
+    int num_classes = classes->len();
+    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+        Class_ c = classes->nth(i);
+        InheritanceNodeP current_node = lookup(c->get_name());
+
+        /* If we ever end up traversing more nodes than there are classes, 
+           we're in a cycle of some sort.
+        */
+        int moves = 0;
+        while (current_node != NULL) {
+            current_node = current_node->parent;
+            moves++;
+            if (moves > num_classes) {
+                // error
+                return;
+            }
+        }
+    }
+
+    /* ClassTable should be complete */
+    return;
 }
 
 void ClassTable::install_basic_classes() {

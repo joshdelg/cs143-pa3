@@ -228,6 +228,20 @@ ostream& ClassTable::semant_error()
     return error_stream;
 }
 
+bool ClassTable::is_equal_class(Symbol a, Symbol b)
+{
+    return a == b;
+}
+
+bool ClassTable::is_subclass(Symbol a, Symbol b)
+{
+    return false;
+}
+
+Symbol ClassTable::class_join(Symbol a, Symbol b) 
+{
+    return NULL;
+}
 
 /*
  * This is the entry point to the semantic checker.

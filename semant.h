@@ -34,6 +34,8 @@ private:
   void install_basic_classes();
   std::ostream& error_stream;
 
+  void print_debug_hierarchy();
+
 public:
   ClassTable(Classes);
   int errors() { return semant_errors; }

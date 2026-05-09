@@ -8,3 +8,5 @@
 !Makefile
 !cool-tree.handcode.h
 !.gitignore
+!custom_tests/
+!custom_tests/**

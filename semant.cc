@@ -149,6 +149,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
     }
 
+    print_debug_hierarchy();
+
     /* ClassTable should be complete */
     return;
 }
@@ -323,6 +325,30 @@ ostream& ClassTable::semant_error()
 {
     semant_errors++;
     return error_stream;
+}
+
+void ClassTable::print_debug_hierarchy() {
+    cout << "Printing debug hierarchy" << endl;
+    // For each node, print the full parent lineage
+    // Iterate through the nodes in the ClassTable by getting the first scope and iterating through members
+    ScopeList& scope_list = gettable();
+    if (scope_list.empty()) {
+        cout << "No scopes in ClassTable" << endl;
+        return;
+    }
+
+    Scope first_scope = scope_list.front();
+    for (auto entry = first_scope.begin(); entry != first_scope.end(); entry++) {
+        InheritanceNodeP node = entry->get_info();
+
+        cout << node->name << " -> ";
+
+        while (node->parent != NULL) {
+            cout << node->parent->name << " -> ";
+            node = node->parent;
+        }
+        cout << endl;
+    }
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)

@@ -17,7 +17,7 @@ typedef ClassTable *ClassTableP;
 
 class InheritanceNode {
 public:
-    ClassTableP class_node;
+    Class_ class_node;
     Symbol name;
     
     InheritanceNodeP parent;

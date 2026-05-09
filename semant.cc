@@ -103,7 +103,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
 
         /* Build InheritanceNode */
-        InheritanceNodeP new_node = new InheritanceNode(c);
+        InheritanceNodeP new_node = new InheritanceNode();
         new_node->class_node = c;
         new_node->name = class_name;
         new_node->parent = NULL;
@@ -261,31 +261,31 @@ void ClassTable::install_basic_classes() {
 
 
     /* Add basic classes to ClassTable */
-    InheritanceNodeP object_node = new InheritanceNode(Object_class);
+    InheritanceNodeP object_node = new InheritanceNode();
     object_node->class_node = Object_class;
     object_node->name = Object;
     object_node->parent = NULL;
     addid(Object, object_node);
 
-    InheritanceNodeP io_node = new InheritanceNode(IO_class);
+    InheritanceNodeP io_node = new InheritanceNode();
     io_node->class_node = IO_class;
     io_node->name = IO;
     io_node->parent = object_node;
     addid(IO, io_node);
 
-    InheritanceNodeP int_node = new InheritanceNode(Int_class);
+    InheritanceNodeP int_node = new InheritanceNode();
     int_node->class_node = Int_class;
     int_node->name = Int;
     int_node->parent = object_node;
     addid(Int, int_node);
 
-    InheritanceNodeP bool_node = new InheritanceNode(Bool_class);
+    InheritanceNodeP bool_node = new InheritanceNode();
     bool_node->class_node = Bool_class;
     bool_node->name = Bool;
     bool_node->parent = object_node;
     addid(Bool, bool_node);
 
-    InheritanceNodeP str_node = new InheritanceNode(Str_class);
+    InheritanceNodeP str_node = new InheritanceNode();
     str_node->class_node = Str_class;
     str_node->name = Str;
     str_node->parent = object_node;

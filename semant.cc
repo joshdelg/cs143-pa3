@@ -86,10 +86,10 @@ static void initialize_constants(void) {
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
-    install_basic_classes();
-
     enterscope(); // global scope, we never actually use other scopes for the ClassTable
 
+    // Must call after enterscope because cannot add classes to the table without a scope
+    install_basic_classes();
     /* Build flat SymbolTable of our classes, essentially a mapping from class
        name to orphan InheritanceNodes.
     */

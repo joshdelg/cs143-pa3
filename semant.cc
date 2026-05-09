@@ -86,10 +86,10 @@ static void initialize_constants(void) {
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
-    install_basic_classes();
-
     enterscope(); // global scope, we never actually use other scopes for the ClassTable
 
+    // Must call after enterscope because cannot add classes to the table without a scope
+    install_basic_classes();
     /* Build flat SymbolTable of our classes, essentially a mapping from class
        name to orphan InheritanceNodes.
     */
@@ -103,7 +103,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
 
         /* Build InheritanceNode */
-        InheritanceNodeP new_node = new InheritanceNode(c);
+        InheritanceNodeP new_node = new InheritanceNode();
         new_node->class_node = c;
         new_node->name = class_name;
         new_node->parent = NULL;
@@ -148,6 +148,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
             }
         }
     }
+
+    print_debug_hierarchy();
 
     /* ClassTable should be complete */
     return;
@@ -261,31 +263,31 @@ void ClassTable::install_basic_classes() {
 
 
     /* Add basic classes to ClassTable */
-    InheritanceNodeP object_node = new InheritanceNode(Object_class);
+    InheritanceNodeP object_node = new InheritanceNode();
     object_node->class_node = Object_class;
     object_node->name = Object;
     object_node->parent = NULL;
     addid(Object, object_node);
 
-    InheritanceNodeP io_node = new InheritanceNode(IO_class);
+    InheritanceNodeP io_node = new InheritanceNode();
     io_node->class_node = IO_class;
     io_node->name = IO;
     io_node->parent = object_node;
     addid(IO, io_node);
 
-    InheritanceNodeP int_node = new InheritanceNode(Int_class);
+    InheritanceNodeP int_node = new InheritanceNode();
     int_node->class_node = Int_class;
     int_node->name = Int;
     int_node->parent = object_node;
     addid(Int, int_node);
 
-    InheritanceNodeP bool_node = new InheritanceNode(Bool_class);
+    InheritanceNodeP bool_node = new InheritanceNode();
     bool_node->class_node = Bool_class;
     bool_node->name = Bool;
     bool_node->parent = object_node;
     addid(Bool, bool_node);
 
-    InheritanceNodeP str_node = new InheritanceNode(Str_class);
+    InheritanceNodeP str_node = new InheritanceNode();
     str_node->class_node = Str_class;
     str_node->name = Str;
     str_node->parent = object_node;
@@ -323,6 +325,30 @@ ostream& ClassTable::semant_error()
 {
     semant_errors++;
     return error_stream;
+}
+
+void ClassTable::print_debug_hierarchy() {
+    cout << "Printing debug hierarchy" << endl;
+    // For each node, print the full parent lineage
+    // Iterate through the nodes in the ClassTable by getting the first scope and iterating through members
+    ScopeList& scope_list = gettable();
+    if (scope_list.empty()) {
+        cout << "No scopes in ClassTable" << endl;
+        return;
+    }
+
+    Scope first_scope = scope_list.front();
+    for (auto entry = first_scope.begin(); entry != first_scope.end(); entry++) {
+        InheritanceNodeP node = entry->get_info();
+
+        cout << node->name << " -> ";
+
+        while (node->parent != NULL) {
+            cout << node->parent->name << " -> ";
+            node = node->parent;
+        }
+        cout << endl;
+    }
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)

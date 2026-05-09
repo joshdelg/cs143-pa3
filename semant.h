@@ -17,7 +17,7 @@ typedef ClassTable *ClassTableP;
 
 class InheritanceNode {
 public:
-    ClassTableP class_node;
+    Class_ class_node;
     Symbol name;
     
     InheritanceNodeP parent;
@@ -33,6 +33,8 @@ private:
   int semant_errors;           // counts the number of semantic errors
   void install_basic_classes();
   std::ostream& error_stream;
+
+  void print_debug_hierarchy();
 
 public:
   ClassTable(Classes);

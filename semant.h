@@ -21,6 +21,11 @@ public:
     Symbol name;
     
     InheritanceNodeP parent;
+
+    // Track the methods and attributes of the class, since these don't have to be
+    // declared before use
+    std::list<Symbol> methods;
+    std::list<Symbol> attributes;
 };
 
 
@@ -35,6 +40,12 @@ private:
   std::ostream& error_stream;
 
   void print_debug_hierarchy();
+
+  /**
+   * Collects all the methods and attributes of the classes in the program
+   * and adds them to the symbol table. Includes methods and attributes inherited from parent classes.
+   */
+  void collect_methods_and_attributes();
 
 public:
   ClassTable(Classes);

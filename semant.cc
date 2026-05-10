@@ -149,7 +149,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
     }
 
-    print_debug_hierarchy();
+    // print_debug_hierarchy();
 
     /* ClassTable should be complete */
     return;
@@ -294,6 +294,28 @@ void ClassTable::install_basic_classes() {
     addid(Str, str_node);
 }
 
+// TODO: Resolve parents. Test.
+void ClassTable::collect_methods_and_attributes() {
+    // Iterate through each class
+    ScopeList& scope_list = gettable();
+    if (scope_list.empty()) {
+        cout << "No scopes in ClassTable" << endl;
+        return;
+    }
+
+    Scope first_scope = scope_list.front();
+    for (auto entry = first_scope.begin(); entry != first_scope.end(); entry++) {
+        Class_ class_node = entry->get_info()->class_node;
+
+        // Collect methods and attributes
+        Features features = class_node->get_features();
+        for (int i = features->first(); features->more(i); i = features->next(i)) {
+            Feature feature = features->nth(i);
+            feature->register_method_or_attribute(entry->get_info()->methods, entry->get_info()->attributes);
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////
 //
 // semant_error is an overloaded function for reporting errors
@@ -390,6 +412,8 @@ Symbol ClassTable::class_join(Symbol a, Symbol b)
     return NULL;
 }
 
+
+
 /*
  * This is the entry point to the semantic checker.
  *
@@ -414,4 +438,6 @@ void program_class::semant() {
       cerr << "Compilation halted due to static semantic errors." << endl;
       exit(1);
    }
+
+   /* Now that the InheritanceGraph is complete, begin resolving names/scope */
 }

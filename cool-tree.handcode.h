@@ -55,20 +55,28 @@ typedef Cases_class *Cases;
   virtual Symbol get_filename() = 0;		\
   virtual void dump_with_types(ostream&,int) = 0; \
   virtual Symbol get_name() = 0; \
-  virtual Symbol get_parent() = 0;
+  virtual Symbol get_parent() = 0; \
+  virtual Features get_features() = 0;
 
 #define class__EXTRAS				       \
   Symbol get_filename() { return filename; }	       \
   void dump_with_types(ostream&,int); \
   Symbol get_name() { return name; } \
-  Symbol get_parent() { return parent; }
+  Symbol get_parent() { return parent; } \
+  Features get_features() { return features; }
 
 #define Feature_EXTRAS					\
-  virtual void dump_with_types(ostream&,int) = 0;
+  virtual void dump_with_types(ostream&,int) = 0; \
+  virtual void register_method_or_attribute(std::list<Symbol> methods, std::list<Symbol> attributes) = 0; // Register's the feature correctly to method or attribute using runtime type
 
 #define Feature_SHARED_EXTRAS			\
   void dump_with_types(ostream&,int);
 
+#define method_EXTRAS \
+  void register_method_or_attribute(std::list<Symbol> methods, std::list<Symbol> attributes) { methods.push_back(name); }
+
+#define attr_EXTRAS \
+  void register_method_or_attribute(std::list<Symbol> methods, std::list<Symbol> attributes) { attributes.push_back(name); }
 
 #define Formal_EXTRAS					      \
   virtual void dump_with_types(ostream&,int) = 0;
@@ -89,6 +97,8 @@ typedef Cases_class *Cases;
   virtual void dump_with_types(ostream&,int) = 0;		\
   void dump_type(ostream&, int);				\
   Expression_class() { type = (Symbol) NULL; }
+
+
 
 #define Expression_SHARED_EXTRAS		\
   void dump_with_types(ostream&,int);

@@ -6,6 +6,7 @@
 #include "stringtab.h"
 #include "symtab.h"
 #include <list>
+#include <unordered_map>
 
 #define TRUE 1
 #define FALSE 0
@@ -24,8 +25,8 @@ public:
 
     // Track the methods and attributes of the class, since these don't have to be
     // declared before use
-    std::list<Symbol> methods;
-    std::list<Symbol> attributes;
+    std::unordered_map<Symbol, Feature> methods;
+    std::unordered_map<Symbol, Feature> attributes;
 };
 
 
@@ -53,6 +54,14 @@ public:
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);
   std::ostream& semant_error(Symbol filename, tree_node *t);
+
+  /**
+   * Lookup a method or attribute by its symbol name for purposes of typechecking.
+   * Both are declared as Feature, calling ->get_type() on the result will use the
+   * correct field to access type through runtime dispatch.
+  */
+  Feature lookup_method(Symbol name, Symbol class_name);
+  Feature lookup_attribute(Symbol name, Symbol class_name);
 
   bool is_equal_class(Symbol a, Symbol b);
   bool is_subclass(Symbol a, Symbol b);

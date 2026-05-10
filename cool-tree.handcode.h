@@ -2,6 +2,7 @@
 #define COOL_TREE_HANDCODE_H
 
 #include <iostream>
+#include <unordered_map>
 #include "tree.h"
 #include "stringtab.h"
 #define yylineno curr_lineno
@@ -67,16 +68,19 @@ typedef Cases_class *Cases;
 
 #define Feature_EXTRAS					\
   virtual void dump_with_types(ostream&,int) = 0; \
-  virtual void register_method_or_attribute(std::list<Symbol> methods, std::list<Symbol> attributes) = 0; // Register's the feature correctly to method or attribute using runtime type
+  virtual void register_method_or_attribute(std::unordered_map<Symbol, Feature> methods, std::unordered_map<Symbol, Feature> attributes) = 0; /* Register's the feature correctly to method or attribute using runtime type */ \
+  virtual Symbol get_type() = 0;
 
 #define Feature_SHARED_EXTRAS			\
   void dump_with_types(ostream&,int);
 
 #define method_EXTRAS \
-  void register_method_or_attribute(std::list<Symbol> methods, std::list<Symbol> attributes) { methods.push_back(name); }
+  void register_method_or_attribute(std::unordered_map<Symbol, Feature> methods, std::unordered_map<Symbol, Feature> attributes) { methods[name] = this; } \
+  Symbol get_type() { return return_type; }
 
 #define attr_EXTRAS \
-  void register_method_or_attribute(std::list<Symbol> methods, std::list<Symbol> attributes) { attributes.push_back(name); }
+  void register_method_or_attribute(std::unordered_map<Symbol, Feature> methods, std::unordered_map<Symbol, Feature> attributes) { attributes[name] = this; } \
+  Symbol get_type() { return type_decl; }
 
 #define Formal_EXTRAS					      \
   virtual void dump_with_types(ostream&,int) = 0;
@@ -102,5 +106,7 @@ typedef Cases_class *Cases;
 
 #define Expression_SHARED_EXTRAS		\
   void dump_with_types(ostream&,int);
+
+#define object_EXTRAS
 
 #endif  // COOL_TREE_HANDCODE_H

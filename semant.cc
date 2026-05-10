@@ -450,8 +450,9 @@ Overall idea:
 1) Recurse through the AST. Environment is a symbol table that tracks what's in scope
 2) When you hit something that should open a new scope (class, method, attribute, block, let, cases, maybe I'm missing something), enter a new scope. When you exit one, exit the scope
     2a) In particular, when you enter a class, in the newly opened scope, add all the methods and attributes of the class to the environment.
-3) When you hit an objectId in an expression body, use the Environment's lookup function to find its type
-4) When you hit a dispatch, lookup the method name using the ClassTable's lookup_method function on the dispatch'd class' name.
+3) When you hit one of the 4 things that introduces a new ObjectId (the spec says what), do an addid() on the environemnt symbol table
+4) When you hit an objectId in an expression body, use the Environment's lookup function to find its type
+5) When you hit a dispatch, lookup the method name using the ClassTable's lookup_method function on the dispatch'd class' name.
 
 We need to implement the typecheck function for each node type. Many will just recurse and apply a typechecking rule from spec. The cases above need to do more.
 Make sure to do pre-order/depth-first traversal so we can type subexpressions.

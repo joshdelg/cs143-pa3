@@ -16,6 +16,14 @@ typedef InheritanceNode *InheritanceNodeP;
 class ClassTable;
 typedef ClassTable *ClassTableP;
 
+struct TypeInfo {
+  Symbol type; /* The type of the ObjectId */
+  object_class *object; /* The object itself */
+};
+
+typedef SymbolTable<Symbol, TypeInfo> Environment;
+typedef Environment *EnvironmentP;
+
 class InheritanceNode {
 public:
     Class_ class_node;

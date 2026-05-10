@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include "tree.h"
 #include "stringtab.h"
+#include "symtab.h"
 #define yylineno curr_lineno
 extern int yylineno;
 
@@ -43,14 +44,23 @@ typedef Expressions_class *Expressions;
 typedef list_node<Case> Cases_class;
 typedef Cases_class *Cases;
 
+class object_class;
+class ClassTable;
+struct TypeInfo;
+
+typedef SymbolTable<Symbol, TypeInfo> Environment;
+typedef Environment *EnvironmentP;
+
 
 #define Program_EXTRAS					\
   virtual void semant() = 0;				\
-  virtual void dump_with_types(ostream&, int) = 0;
+  virtual void dump_with_types(ostream&, int) = 0; \
+  virtual void typecheck(ClassTable *class_table, Environment *env) = 0;
 
 #define program_EXTRAS                          \
   void semant();				\
-  void dump_with_types(ostream&, int);
+  void dump_with_types(ostream&, int); \
+  void typecheck(ClassTable *class_table, Environment *env);
 
 #define Class__EXTRAS				\
   virtual Symbol get_filename() = 0;		\

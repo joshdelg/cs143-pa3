@@ -439,5 +439,22 @@ void program_class::semant() {
       exit(1);
    }
 
-   /* Now that the InheritanceGraph is complete, begin resolving names/scope */
+   /* Now, begin resolving names/scope and typechecking */
+   Environment *env = new Environment();
+   typecheck(classtable, env);
 }
+
+
+/* This is where all the typechecking functions will go.
+Overall idea:
+1) Recurse through the AST. Environment is a symbol table that tracks what's in scope
+2) When you hit something that should open a new scope (class, method, attribute, block, let, cases, maybe I'm missing something), enter a new scope. When you exit one, exit the scope
+    2a) In particular, when you enter a class, in the newly opened scope, add all the methods and attributes of the class to the environment.
+3) When you hit an objectId in an expression body, use the Environment's lookup function to find its type
+4) When you hit a dispatch, lookup the method name using the ClassTable's lookup_method function on the dispatch'd class' name.
+
+We need to implement the typecheck function for each node type. Many will just recurse and apply a typechecking rule from spec. The cases above need to do more.
+Make sure to do pre-order/depth-first traversal so we can type subexpressions.
+*/
+
+void program_class::typecheck(ClassTable *class_table, Environment *env) {}

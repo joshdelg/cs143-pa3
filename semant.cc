@@ -149,7 +149,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
     }
 
-    print_debug_hierarchy();
+    // print_debug_hierarchy();
 
     /* ClassTable should be complete */
     return;
@@ -294,6 +294,28 @@ void ClassTable::install_basic_classes() {
     addid(Str, str_node);
 }
 
+// TODO: Resolve parents. Test.
+void ClassTable::collect_methods_and_attributes() {
+    // Iterate through each class
+    ScopeList& scope_list = gettable();
+    if (scope_list.empty()) {
+        cout << "No scopes in ClassTable" << endl;
+        return;
+    }
+
+    Scope first_scope = scope_list.front();
+    for (auto entry = first_scope.begin(); entry != first_scope.end(); entry++) {
+        Class_ class_node = entry->get_info()->class_node;
+
+        // Collect methods and attributes
+        Features features = class_node->get_features();
+        for (int i = features->first(); features->more(i); i = features->next(i)) {
+            Feature feature = features->nth(i);
+            feature->register_method_or_attribute(entry->get_info()->methods, entry->get_info()->attributes);
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////
 //
 // semant_error is an overloaded function for reporting errors
@@ -390,6 +412,8 @@ Symbol ClassTable::class_join(Symbol a, Symbol b)
     return NULL;
 }
 
+
+
 /*
  * This is the entry point to the semantic checker.
  *
@@ -414,4 +438,24 @@ void program_class::semant() {
       cerr << "Compilation halted due to static semantic errors." << endl;
       exit(1);
    }
+
+   /* Now, begin resolving names/scope and typechecking */
+   Environment *env = new Environment();
+   typecheck(classtable, env);
 }
+
+
+/* This is where all the typechecking functions will go.
+Overall idea:
+1) Recurse through the AST. Environment is a symbol table that tracks what's in scope
+2) When you hit something that should open a new scope (class, method, attribute, block, let, cases, maybe I'm missing something), enter a new scope. When you exit one, exit the scope
+    2a) In particular, when you enter a class, in the newly opened scope, add all the methods and attributes of the class to the environment.
+3) When you hit one of the 4 things that introduces a new ObjectId (the spec says what), do an addid() on the environemnt symbol table
+4) When you hit an objectId in an expression body, use the Environment's lookup function to find its type
+5) When you hit a dispatch, lookup the method name using the ClassTable's lookup_method function on the dispatch'd class' name.
+
+We need to implement the typecheck function for each node type. Many will just recurse and apply a typechecking rule from spec. The cases above need to do more.
+Make sure to do pre-order/depth-first traversal so we can type subexpressions.
+*/
+
+void program_class::typecheck(ClassTable *class_table, Environment *env) {}

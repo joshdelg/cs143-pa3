@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <algorithm>
+#include <unordered_set>
+#include <vector>
 #include "semant.h"
 #include "utilities.h"
 
@@ -98,7 +101,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         Symbol class_name = c->get_name();
 
         if (class_name == SELF_TYPE) {
-            // error
+            semant_error(c) << "Class cannot be named SELF_TYPE.\n";
             return;
         }
 
@@ -110,7 +113,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
 
         /* Check for duplicates */
         if (probe(class_name) != NULL) {
-            // error
+            semant_error(c) << "Class " << class_name << " is already defined.\n";
             return;
         }
 
@@ -125,6 +128,11 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
 
         InheritanceNodeP child_node = lookup(c->get_name());
         InheritanceNodeP parent_node = lookup(parent_name);
+
+        if (parent_name == Int || parent_name == Bool || parent_name == Str) {
+            semant_error(c) << "Class " << c->get_name() << " cannot inherit from basic class " << parent_name << ".\n";
+            return;
+        }
 
         child_node->parent = parent_node;
     }
@@ -143,13 +151,28 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
             current_node = current_node->parent;
             moves++;
             if (moves > num_classes) {
-                // error
+                semant_error(c) << "Inheritance cycle detected for class " << c->get_name() << ".\n";
                 return;
             }
         }
     }
 
-    // print_debug_hierarchy();
+    collect_methods_and_attributes();
+
+    /* Ensure there is a Main class and a main method */
+    InheritanceNode *main_node = lookup(Main);
+    if (main_node == NULL) {
+        semant_error() << "Class Main is not defined.\n";
+    } else {
+        Feature main_method = lookup_method(main_meth, Main);
+        if (main_method == NULL) {
+            semant_error(main_node->class_node) << "No 'main' method defined in class Main.\n";
+        } else if (main_method->get_formals()->len() != 0) {
+            semant_error(main_node->class_node) << "'main' method in class Main should have no arguments.\n";
+        }
+    }
+
+    print_debug_hierarchy();
 
     /* ClassTable should be complete */
     return;
@@ -294,7 +317,6 @@ void ClassTable::install_basic_classes() {
     addid(Str, str_node);
 }
 
-// TODO: Resolve parents. Test.
 void ClassTable::collect_methods_and_attributes() {
     // Iterate through each class
     ScopeList& scope_list = gettable();
@@ -303,15 +325,45 @@ void ClassTable::collect_methods_and_attributes() {
         return;
     }
 
+    // We keep a set of classes we've already set up so we don't touch them.
+    std::unordered_set<Symbol> initialized;
+
     Scope first_scope = scope_list.front();
     for (auto entry = first_scope.begin(); entry != first_scope.end(); entry++) {
-        Class_ class_node = entry->get_info()->class_node;
+        InheritanceNodeP node = entry->get_info();
+        if (initialized.count(node->name)) continue;
 
-        // Collect methods and attributes
-        Features features = class_node->get_features();
-        for (int i = features->first(); features->more(i); i = features->next(i)) {
-            Feature feature = features->nth(i);
-            feature->register_method_or_attribute(entry->get_info()->methods, entry->get_info()->attributes);
+
+        // We want to traverse from top->down so we can do overriding correctly.
+        std::vector<InheritanceNodeP> chain;
+        InheritanceNodeP current = node;
+        while (current != NULL) {
+            chain.push_back(current);
+            current = current->parent;
+        }
+        std::reverse(chain.begin(), chain.end());
+
+        // Traverse down from Object to this class, accumulating methods and attributes as we go down.
+        for (InheritanceNodeP ancestor : chain) {
+            if (initialized.count(ancestor->name)) continue;
+
+            // Inherit parent's items, already initialized because we're moving down the chain.
+            if (ancestor->parent != NULL) {
+                ancestor->methods = ancestor->parent->methods;
+                ancestor->attributes = ancestor->parent->attributes;
+            }
+
+            // Add this class's own features.
+            Features features = ancestor->class_node->get_features();
+            for (int i = features->first(); features->more(i); i = features->next(i)) {
+                Feature feature = features->nth(i);
+
+                // TODO: Somehow check overriding bugs?
+
+                feature->register_method_or_attribute(ancestor->methods, ancestor->attributes);
+            }
+
+            initialized.insert(ancestor->name);
         }
     }
 }
@@ -370,7 +422,21 @@ void ClassTable::print_debug_hierarchy() {
             node = node->parent;
         }
         cout << endl;
+
+        node = entry->get_info();
+        for (auto& m : node->methods)
+            cout << "-method:" << m.first << ":" << m.second->get_type() << endl;
+        for (auto& a : node->attributes)
+            cout << "-attr:" << a.first << ":" << a.second->get_type() << endl;
     }
+}
+
+Feature ClassTable::lookup_method(Symbol name, Symbol class_name) {
+    return NULL;
+}
+
+Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name) {
+    return NULL;
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)

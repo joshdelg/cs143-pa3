@@ -2,6 +2,7 @@
 #define COOL_TREE_HANDCODE_H
 
 #include <iostream>
+#include <string>
 #include <unordered_map>
 #include "tree.h"
 #include "stringtab.h"
@@ -51,6 +52,16 @@ struct TypeInfo;
 typedef SymbolTable<Symbol, TypeInfo> Environment;
 typedef Environment *EnvironmentP;
 
+struct FeatureOverrideInfo;
+typedef FeatureOverrideInfo *FeatureOverrideInfoP;
+
+struct FeatureOverrideInfo {
+  Feature feature;
+  FeatureOverrideInfoP ancestors;
+  Class_ owner_class;
+  FeatureOverrideInfo(Feature f, FeatureOverrideInfoP a, Class_ o)
+      : feature(f), ancestors(a), owner_class(o) {}
+};
 
 #define Program_EXTRAS					\
   virtual void semant() = 0;				\
@@ -78,7 +89,7 @@ typedef Environment *EnvironmentP;
 
 #define Feature_EXTRAS					\
   virtual void dump_with_types(ostream&,int) = 0; \
-  virtual void register_method_or_attribute(std::unordered_map<Symbol, Feature>& methods, std::unordered_map<Symbol, Feature>& attributes) = 0; /* Register's the feature correctly to method or attribute using runtime type */ \
+  virtual bool register_method_or_attribute(std::unordered_map<Symbol, FeatureOverrideInfoP>& methods, std::unordered_map<Symbol, FeatureOverrideInfoP>& attributes, std::string& error_message, Class_ current_class) = 0; \
   virtual Symbol get_type() = 0; \
   virtual Formals get_formals() = 0;
 
@@ -86,20 +97,22 @@ typedef Environment *EnvironmentP;
   void dump_with_types(ostream&,int);
 
 #define method_EXTRAS \
-  void register_method_or_attribute(std::unordered_map<Symbol, Feature>& methods, std::unordered_map<Symbol, Feature>& attributes) { methods[name] = this; } \
+  bool register_method_or_attribute(std::unordered_map<Symbol, FeatureOverrideInfoP>& methods, std::unordered_map<Symbol, FeatureOverrideInfoP>& attributes, std::string& error_message, Class_ current_class) override; \
   Symbol get_type() { return return_type; } \
   Formals get_formals() { return formals; }
 
 #define attr_EXTRAS \
-  void register_method_or_attribute(std::unordered_map<Symbol, Feature>& methods, std::unordered_map<Symbol, Feature>& attributes) { attributes[name] = this; } \
+  bool register_method_or_attribute(std::unordered_map<Symbol, FeatureOverrideInfoP>& methods, std::unordered_map<Symbol, FeatureOverrideInfoP>& attributes, std::string& error_message, Class_ current_class) override; \
   Symbol get_type() { return type_decl; } \
   Formals get_formals() { return NULL; }
 
 #define Formal_EXTRAS					      \
-  virtual void dump_with_types(ostream&,int) = 0;
+  virtual void dump_with_types(ostream&,int) = 0; \
+  virtual Symbol get_type() = 0;
 
 #define formal_EXTRAS				  \
-  void dump_with_types(ostream&,int);
+  void dump_with_types(ostream&,int); \
+  Symbol get_type() { return type_decl; }
 
 #define Case_EXTRAS					\
   virtual void dump_with_types(ostream& ,int) = 0;

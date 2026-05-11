@@ -33,8 +33,8 @@ public:
 
     // Track the methods and attributes of the class, since these don't have to be
     // declared before use
-    std::unordered_map<Symbol, Feature> methods;
-    std::unordered_map<Symbol, Feature> attributes;
+    std::unordered_map<Symbol, FeatureOverrideInfoP> methods;
+    std::unordered_map<Symbol, FeatureOverrideInfoP> attributes;
 };
 
 
@@ -55,7 +55,6 @@ private:
    * and adds them to the symbol table. Includes methods and attributes inherited from parent classes.
    */
   void collect_methods_and_attributes();
-
 public:
   ClassTable(Classes);
   int errors() { return semant_errors; }
@@ -67,6 +66,8 @@ public:
    * Lookup a method or attribute by its symbol name for purposes of typechecking.
    * Both are declared as Feature, calling ->get_type() on the result will use the
    * correct field to access type through runtime dispatch.
+
+   * Returns the bottommost overload found on the inheritance hierarchy
   */
   Feature lookup_method(Symbol name, Symbol class_name);
   Feature lookup_attribute(Symbol name, Symbol class_name);

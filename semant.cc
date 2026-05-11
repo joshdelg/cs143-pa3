@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <algorithm>
+#include <string>
 #include <unordered_set>
 #include <vector>
 #include "semant.h"
@@ -348,6 +349,7 @@ void ClassTable::collect_methods_and_attributes() {
             if (initialized.count(ancestor->name)) continue;
 
             // Inherit parent's items, already initialized because we're moving down the chain.
+            // (Object has no parent)
             if (ancestor->parent != NULL) {
                 ancestor->methods = ancestor->parent->methods;
                 ancestor->attributes = ancestor->parent->attributes;
@@ -358,9 +360,11 @@ void ClassTable::collect_methods_and_attributes() {
             for (int i = features->first(); features->more(i); i = features->next(i)) {
                 Feature feature = features->nth(i);
 
-                // TODO: Somehow check overriding bugs?
-
-                feature->register_method_or_attribute(ancestor->methods, ancestor->attributes);
+                std::string err;
+                if (!feature->register_method_or_attribute(ancestor->methods, ancestor->attributes, err,
+                                                          ancestor->class_node)) {
+                    semant_error(ancestor->class_node->get_filename(), feature) << err << endl;
+                }
             }
 
             initialized.insert(ancestor->name);
@@ -425,9 +429,9 @@ void ClassTable::print_debug_hierarchy() {
 
         node = entry->get_info();
         for (auto& m : node->methods)
-            cout << "-method:" << m.first << ":" << m.second->get_type() << endl;
+            cout << "-method:" << m.first << ":" << m.second->feature->get_type() << endl;
         for (auto& a : node->attributes)
-            cout << "-attr:" << a.first << ":" << a.second->get_type() << endl;
+            cout << "-attr:" << a.first << ":" << a.second->feature->get_type() << endl;
     }
 }
 
@@ -479,6 +483,63 @@ Symbol ClassTable::class_join(Symbol a, Symbol b)
 }
 
 
+/*** AST Method Implementations */
+
+bool method_class::register_method_or_attribute(std::unordered_map<Symbol, FeatureOverrideInfoP> &methods,
+                                                std::unordered_map<Symbol, FeatureOverrideInfoP> &attributes,
+                                                std::string &error_message, Class_ current_class) {
+    (void)attributes;
+    const char *n = name->get_string();
+    FeatureOverrideInfoP existing = methods[name];
+
+    if (existing != NULL) {
+        Feature parent_m = existing->feature;
+        if (get_formals()->len() != parent_m->get_formals()->len()) {
+            error_message =
+                std::string("Incompatible number of formal parameters in redefined method ") + n + ".";
+            return false;
+        }
+        if (get_type() != parent_m->get_type()) {
+            error_message = std::string("In redefined method ") + n + ", return type " +
+                            std::string(get_type()->get_string()) + " is different from original return type " +
+                            std::string(parent_m->get_type()->get_string()) + ".";
+            return false;
+        }
+        for (int i = get_formals()->first(); get_formals()->more(i); i = get_formals()->next(i)) {
+            Formal cf = get_formals()->nth(i);
+            Formal pf = parent_m->get_formals()->nth(i);
+            if (cf->get_type() != pf->get_type()) {
+                error_message = std::string("In redefined method ") + n + ", parameter type " +
+                                std::string(cf->get_type()->get_string()) +
+                                " is different from original type " + std::string(pf->get_type()->get_string());
+                return false;
+            }
+        }
+    }
+
+    methods[name] = new FeatureOverrideInfo(this, existing, current_class);
+    return true;
+}
+
+bool attr_class::register_method_or_attribute(std::unordered_map<Symbol, FeatureOverrideInfoP> &methods,
+                                              std::unordered_map<Symbol, FeatureOverrideInfoP> &attributes,
+                                              std::string &error_message, Class_ current_class) {
+    (void)methods;
+    FeatureOverrideInfoP existing = attributes[name];
+    if (existing != NULL) {
+        if (existing->owner_class == current_class) {
+            error_message =
+                std::string("Attribute ") + name->get_string() + " is multiply defined in class.";
+        } else {
+            error_message =
+                std::string("Attribute ") + name->get_string() + " is an attribute of an inherited class.";
+        }
+        return false;
+    }
+
+    attributes[name] = new FeatureOverrideInfo(this, nullptr, current_class);
+    return true;
+}
 
 /*
  * This is the entry point to the semantic checker.

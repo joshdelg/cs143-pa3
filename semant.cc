@@ -169,7 +169,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
     }
 
-    // print_debug_hierarchy();
+    print_debug_hierarchy();
 
     /* ClassTable should be complete */
     return;
@@ -390,7 +390,21 @@ void ClassTable::print_debug_hierarchy() {
             node = node->parent;
         }
         cout << endl;
+
+        node = entry->get_info();
+        for (auto& m : node->methods)
+            cout << "-method:" << m.first << ":" << m.second->get_type() << endl;
+        for (auto& a : node->attributes)
+            cout << "-attr:" << a.first << ":" << a.second->get_type() << endl;
     }
+}
+
+Feature ClassTable::lookup_method(Symbol name, Symbol class_name) {
+    return NULL;
+}
+
+Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name) {
+    return NULL;
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)

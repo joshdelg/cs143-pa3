@@ -154,6 +154,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
     }
 
+    collect_methods_and_attributes();
+
     /* Ensure there is a Main class and a main method */
     InheritanceNode *main_node = lookup(Main);
     if (main_node == NULL) {
@@ -162,8 +164,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         Feature main_method = lookup_method(main_meth, Main);
         if (main_method == NULL) {
             semant_error(main_node->class_node) << "No 'main' method defined in class Main.\n";
-        }
-        if (main_method->get_formals()->len() != 0) {
+        } else if (main_method->get_formals()->len() != 0) {
             semant_error(main_node->class_node) << "'main' method in class Main should have no arguments.\n";
         }
     }

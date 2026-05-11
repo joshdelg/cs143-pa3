@@ -98,7 +98,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         Symbol class_name = c->get_name();
 
         if (class_name == SELF_TYPE) {
-            // error
+            semant_error(c) << "Class cannot be named SELF_TYPE.\n";
             return;
         }
 
@@ -110,7 +110,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
 
         /* Check for duplicates */
         if (probe(class_name) != NULL) {
-            // error
+            semant_error(c) << "Class " << class_name << " is already defined.\n";
             return;
         }
 
@@ -125,6 +125,11 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
 
         InheritanceNodeP child_node = lookup(c->get_name());
         InheritanceNodeP parent_node = lookup(parent_name);
+
+        if (parent_name == Int || parent_name == Bool || parent_name == Str) {
+            semant_error(c) << "Class " << c->get_name() << " cannot inherit from basic class " << parent_name << ".\n";
+            return;
+        }
 
         child_node->parent = parent_node;
     }
@@ -143,9 +148,23 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
             current_node = current_node->parent;
             moves++;
             if (moves > num_classes) {
-                // error
+                semant_error(c) << "Inheritance cycle detected for class " << c->get_name() << ".\n";
                 return;
             }
+        }
+    }
+
+    /* Ensure there is a Main class and a main method */
+    InheritanceNode *main_node = lookup(Main);
+    if (main_node == NULL) {
+        semant_error() << "Class Main is not defined.\n";
+    } else {
+        Feature main_method = lookup_method(main_meth, Main);
+        if (main_method == NULL) {
+            semant_error(main_node->class_node) << "No 'main' method defined in class Main.\n";
+        }
+        if (main_method->get_formals()->len() != 0) {
+            semant_error(main_node->class_node) << "'main' method in class Main should have no arguments.\n";
         }
     }
 

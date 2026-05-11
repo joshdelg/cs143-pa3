@@ -359,6 +359,7 @@ void ClassTable::collect_methods_and_attributes() {
                 Feature feature = features->nth(i);
 
                 // TODO: Somehow check overriding bugs?
+                // TODO: Make method/attributes also include what class they come from in some sort of struct
 
                 feature->register_method_or_attribute(ancestor->methods, ancestor->attributes);
             }

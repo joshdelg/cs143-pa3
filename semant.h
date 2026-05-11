@@ -68,6 +68,10 @@ public:
    * Both are declared as Feature, calling ->get_type() on the result will use the
    * correct field to access type through runtime dispatch.
   */
+
+  /* If we have multiple definitions of a method across an inheritance tree, for the regular <expr>.<id>(<expr>,...,<expr>) case we just call the bottom-most one */
+  /* For <id>(<expr>,...,<expr>), we just search the current (self) class. */
+  /* For <expr>@<type>.id(<expr>,...,<expr>), we search the class after the @ sign */
   Feature lookup_method(Symbol name, Symbol class_name);
   Feature lookup_attribute(Symbol name, Symbol class_name);
 

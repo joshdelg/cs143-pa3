@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <algorithm>
+#include <unordered_set>
+#include <vector>
 #include "semant.h"
 #include "utilities.h"
 
@@ -314,7 +317,6 @@ void ClassTable::install_basic_classes() {
     addid(Str, str_node);
 }
 
-// TODO: Resolve parents. Test.
 void ClassTable::collect_methods_and_attributes() {
     // Iterate through each class
     ScopeList& scope_list = gettable();
@@ -323,15 +325,45 @@ void ClassTable::collect_methods_and_attributes() {
         return;
     }
 
+    // We keep a set of classes we've already set up so we don't touch them.
+    std::unordered_set<Symbol> initialized;
+
     Scope first_scope = scope_list.front();
     for (auto entry = first_scope.begin(); entry != first_scope.end(); entry++) {
-        Class_ class_node = entry->get_info()->class_node;
+        InheritanceNodeP node = entry->get_info();
+        if (initialized.count(node->name)) continue;
 
-        // Collect methods and attributes
-        Features features = class_node->get_features();
-        for (int i = features->first(); features->more(i); i = features->next(i)) {
-            Feature feature = features->nth(i);
-            feature->register_method_or_attribute(entry->get_info()->methods, entry->get_info()->attributes);
+
+        // We want to traverse from top->down so we can do overriding correctly.
+        std::vector<InheritanceNodeP> chain;
+        InheritanceNodeP current = node;
+        while (current != NULL) {
+            chain.push_back(current);
+            current = current->parent;
+        }
+        std::reverse(chain.begin(), chain.end());
+
+        // Traverse down from Object to this class, accumulating methods and attributes as we go down.
+        for (InheritanceNodeP ancestor : chain) {
+            if (initialized.count(ancestor->name)) continue;
+
+            // Inherit parent's items, already initialized because we're moving down the chain.
+            if (ancestor->parent != NULL) {
+                ancestor->methods = ancestor->parent->methods;
+                ancestor->attributes = ancestor->parent->attributes;
+            }
+
+            // Add this class's own features.
+            Features features = ancestor->class_node->get_features();
+            for (int i = features->first(); features->more(i); i = features->next(i)) {
+                Feature feature = features->nth(i);
+
+                // TODO: Somehow check overriding bugs?
+
+                feature->register_method_or_attribute(ancestor->methods, ancestor->attributes);
+            }
+
+            initialized.insert(ancestor->name);
         }
     }
 }

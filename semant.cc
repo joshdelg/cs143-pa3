@@ -436,11 +436,31 @@ void ClassTable::print_debug_hierarchy() {
 }
 
 Feature ClassTable::lookup_method(Symbol name, Symbol class_name) {
-    return NULL;
+    // NULL if class not found
+    InheritanceNode *node = lookup(class_name);
+    if (node == NULL) return NULL;
+
+    // ... or if method not found (.find allows a safe lookup)
+    auto iter = node->methods.find(name);
+    if (iter == node->methods.end()) return NULL;
+
+    // iter entry -> FeatureOverrideInfo -> feature
+    return iter->second->feature;
+
 }
 
+
 Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name) {
-    return NULL;
+    // NULL if class not found
+    InheritanceNode *node = lookup(class_name); 
+    if (node == NULL) return NULL;
+
+    // ... or if attribute not found (.find allows a safe lookup)
+    auto it = node->attributes.find(name);
+    if (it == node->attributes.end()) return NULL;
+
+    // it entry -> FeatureOverrideInfo -> feature
+    return it->second->feature;
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)
@@ -585,4 +605,7 @@ We need to implement the typecheck function for each node type. Many will just r
 Make sure to do pre-order/depth-first traversal so we can type subexpressions.
 */
 
-void program_class::typecheck(ClassTable *class_table, Environment *env) {}
+void program_class::typecheck(ClassTable *class_table, Environment *env) {
+    // So essentially we'll be building a shit ton of if statements that check all possible paths or type checking, save that type if it matches, and error if none do?
+    // We'll be managing a symbol table simultaneously and use this as our primary tool when traversing the list.
+}

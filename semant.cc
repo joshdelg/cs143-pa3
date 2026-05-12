@@ -607,6 +607,12 @@ void program_class::semant() {
    /* Now, begin resolving names/scope and typechecking */
    Environment *env = new Environment();
    typecheck(classtable, env);
+
+    // Check for errors again after typechecking.
+    if (classtable->errors()) {
+        cerr << "Compilation halted due to static semantic errors." << endl;
+        exit(1);
+    }
 }
 
 
@@ -711,7 +717,7 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
     // Assert that the body's type is the return type (or a subclass)
     Symbol body_type = expr->get_type();
     if (!class_table->is_subclass_given_context(body_type, return_type, current_class)) {
-        class_table->semant_error(filename, this) << "Actual return type " << body_type << " of method " << name << " does not match declared return type " << return_type << ".\n";
+        class_table->semant_error(filename, this) << "Inferred return type " << body_type << " of method " << name << " does not conform to declared return type " << return_type << ".\n";
     }
 
     env->exitscope();
@@ -735,7 +741,7 @@ void attr_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
     // Ensure T_1 <= T_0
     if (init->get_type() != No_type) {
         if (!class_table->is_subclass_given_context(init->get_type(), type_decl, current_class)) {
-            class_table->semant_error(filename, this) << "Type " << init->get_type() << " of the initialization of attribute " << name << " does not match the declared type " << type_decl << ".\n";
+            class_table->semant_error(filename, this) << "Inferred type " << init->get_type() << " of initialization of attribute " << name << " does not conform to declared type " << type_decl << ".\n";
         }
     }
    
@@ -811,7 +817,7 @@ void plus_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     if (e1->get_type() != Int || e2->get_type() != Int) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " + " << e2->get_type() << " in addition operation.\n";
+            << "non-Int arguments: " << e1->get_type() << " + " << e2->get_type() << "\n";
     }
 
     type = Int;
@@ -831,7 +837,7 @@ void sub_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
 
     if (e1->get_type() != Int || e2->get_type() != Int) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " - " << e2->get_type() << " in subtraction operation.\n";
+            << "non-Int arguments: " << e1->get_type() << " - " << e2->get_type() << "\n";
     }
 
     type = Int;
@@ -851,7 +857,7 @@ void mul_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
 
     if (e1->get_type() != Int || e2->get_type() != Int) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " * " << e2->get_type() << " in multiplication operation.\n";
+            << "non-Int arguments: " << e1->get_type() << " * " << e2->get_type() << "\n";
     }
 
     type = Int;
@@ -871,7 +877,7 @@ void divide_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 
     if (e1->get_type() != Int || e2->get_type() != Int) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " / " << e2->get_type() << " in division operation.\n";
+            << "non-Int arguments: " << e1->get_type() << " / " << e2->get_type() << "\n";
     }
 
     type = Int;

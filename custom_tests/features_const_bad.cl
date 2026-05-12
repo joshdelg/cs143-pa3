@@ -1,17 +1,23 @@
 class Main {
     main(): Bool {
-        true
+        "Not a bool!"
     };
 
     main2(): Int {
-        1
+        true
     };
 
     main3(): String {
-        "Hello"
+        173
     };
 
     myBool: Bool;
     myInt: Int;
     myString: String;
+};
+
+class A {
+    aBool: Bool <- 1234;
+    aInt: Int <- "BYYE!";
+    aString: String <- true;
 };

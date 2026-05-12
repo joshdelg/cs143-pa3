@@ -608,4 +608,40 @@ Make sure to do pre-order/depth-first traversal so we can type subexpressions.
 void program_class::typecheck(ClassTable *class_table, Environment *env) {
     // So essentially we'll be building a shit ton of if statements that check all possible paths or type checking, save that type if it matches, and error if none do?
     // We'll be managing a symbol table simultaneously and use this as our primary tool when traversing the list.
+    env->enterscope();
+    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+        Class_ c = classes->nth(i);
+        c->typecheck(class_table, env);
+    }
+    env->exitscope();
+}
+
+void class__class::typecheck(ClassTable *class_table, Environment *env) {
+    env->enterscope();
+
+    // From manual page 21 (The only unlabeled rule):
+    // O_C (x) = {  SELF_TYPE_C   if T = SELF_TYPE
+    //              T             otherwise
+
+    // SELF_TYPE
+    TypeInfo *self_info = new TypeInfo();
+    self_info->type = SELF_TYPE;
+    self_info->object = NULL;
+    env->addid(self, self_info);
+
+    // All other attributes (T's)
+    InheritanceNode *node = class_table->lookup(name);
+    for (auto& entry : node->attributes) {
+        TypeInfo *info = new TypeInfo();
+        info->type = entry.second->feature->get_type();
+        info->object = NULL;
+        env->addid(entry.first, info);
+    }
+
+    // Continue recursion
+    for (int i = features->first(); features->more(i); i = features->next(i)) {
+        features->nth(i)->typecheck(class_table, env);
+    }
+
+    env->exitscope();
 }

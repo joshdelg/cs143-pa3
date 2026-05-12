@@ -745,12 +745,10 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
     // Assert that the body's type is the return type (or a subclass)
     Symbol body_type = expr->get_type();
 
-    // TODO: Remove once implemented
-    if (body_type == NULL) {
-        body_type = No_type;
-    }
-    if (!class_table->is_subclass_given_context(body_type, return_type, current_class)) {
-        class_table->semant_error(filename, this) << "Inferred return type " << body_type << " of method " << name << " does not conform to declared return type " << return_type << ".\n";
+    if (body_type != No_type) {
+        if (!class_table->is_subclass_given_context(body_type, return_type, current_class)) {
+            class_table->semant_error(filename, this) << "Inferred return type " << body_type << " of method " << name << " does not conform to declared return type " << return_type << ".\n";
+        }
     }
 
     env->exitscope();

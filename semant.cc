@@ -436,11 +436,31 @@ void ClassTable::print_debug_hierarchy() {
 }
 
 Feature ClassTable::lookup_method(Symbol name, Symbol class_name) {
-    return NULL;
+    // NULL if class not found
+    InheritanceNode *node = lookup(class_name);
+    if (node == NULL) return NULL;
+
+    // ... or if method not found (.find allows a safe lookup)
+    auto iter = node->methods.find(name);
+    if (iter == node->methods.end()) return NULL;
+
+    // iter entry -> FeatureOverrideInfo -> feature
+    return iter->second->feature;
+
 }
 
+
 Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name) {
-    return NULL;
+    // NULL if class not found
+    InheritanceNode *node = lookup(class_name); 
+    if (node == NULL) return NULL;
+
+    // ... or if attribute not found (.find allows a safe lookup)
+    auto it = node->attributes.find(name);
+    if (it == node->attributes.end()) return NULL;
+
+    // it entry -> FeatureOverrideInfo -> feature
+    return it->second->feature;
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)
@@ -461,6 +481,26 @@ bool ClassTable::is_subclass(Symbol child, Symbol ancestor)
     }
 
     return false;
+}
+
+// This subclass function does a quick check for SELF_TYPE and redirects to the normal is_subclass function if applicable.
+bool ClassTable::is_subclass_given_context(Symbol a, Symbol b, Symbol C) {
+    Symbol actual_a;
+    Symbol actual_b;
+
+    if (a == SELF_TYPE) {
+        actual_a = C;
+    } else {
+        actual_a = a;
+    }
+
+    if (b == SELF_TYPE) {
+        actual_b = C;
+    } else {
+        actual_b = b;
+    }
+
+    return is_subclass(actual_a, actual_b);
 }
 
 Symbol ClassTable::class_join(Symbol a, Symbol b) 
@@ -585,4 +625,320 @@ We need to implement the typecheck function for each node type. Many will just r
 Make sure to do pre-order/depth-first traversal so we can type subexpressions.
 */
 
-void program_class::typecheck(ClassTable *class_table, Environment *env) {}
+void program_class::typecheck(ClassTable *class_table, Environment *env) {
+    // So essentially we'll be building a shit ton of if statements that check all possible paths or type checking, save that type if it matches, and error if none do?
+    // We'll be managing a symbol table simultaneously and use this as our primary tool when traversing the list.
+    env->enterscope();
+    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+        Class_ c = classes->nth(i);
+        c->typecheck(class_table, env);
+    }
+    env->exitscope();
+}
+
+void class__class::typecheck(ClassTable *class_table, Environment *env) {
+    env->enterscope();
+
+    // From manual page 21 (The only unlabeled rule):
+    // O_C (x) = {  SELF_TYPE_C   if T = SELF_TYPE
+    //              T             otherwise
+
+    // SELF_TYPE
+    TypeInfo *self_info = new TypeInfo();
+    self_info->type = SELF_TYPE;
+    self_info->object = NULL;
+    env->addid(self, self_info);
+
+    // All other attributes (T's)
+    InheritanceNode *node = class_table->lookup(name);
+    for (auto& entry : node->attributes) {
+        TypeInfo *info = new TypeInfo();
+        info->type = entry.second->feature->get_type();
+        info->object = NULL;
+        env->addid(entry.first, info);
+    }
+
+    // Continue recursion
+    for (int i = features->first(); features->more(i); i = features->next(i)) {
+        features->nth(i)->typecheck(class_table, env, name);
+    }
+
+    env->exitscope();
+}
+
+
+void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename(); // for error messages
+    env->enterscope();
+
+    // [Method]
+    //
+    // M(C,f) = (T1, ..., T_n, T_0)
+    // O_C[SELF_TYPE_C / self][T_1/x_1]...[T_n/x_n], M, C |- e : T_0'
+    // T_0' <= {  SELF_TYPE_C   if T_0 = SELF_TYPE
+    //            T_0           otherwise
+    //------------------------------------------------------------------
+    // O_C , M, C |- f(x1 : T1, ..., xn : Tn) : T_0 { e }
+
+    // Bind every formal parameters to its declared type for the body of the method.
+    // (The O_C[SELF_TYPE_C / self][T_1/x_1]...[T_n/x_n] part)
+    std::unordered_set<Symbol> seen_formals; // Track duplicates
+    for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
+        Formal cur_formal = formals->nth(i);
+        Symbol cur_formal_name = cur_formal->get_name();
+        Symbol cur_formal_type = cur_formal->get_type();
+
+        if (cur_formal_name == self) {
+            class_table->semant_error(filename, cur_formal) << "'self' cannot be a formal parameter.\n";
+            continue;
+        }
+        if (cur_formal_type == SELF_TYPE) {
+            class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " cannot have type SELF_TYPE.\n";
+        }
+        if (seen_formals.count(cur_formal_name)) {
+            class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " is already defined.\n";
+            continue;
+        }
+        seen_formals.insert(cur_formal_name);
+
+        TypeInfo *info = new TypeInfo();
+        info->type = cur_formal_type;
+        info->object = NULL;
+        env->addid(cur_formal_name, info);
+    }
+
+    // Continue recursion
+    expr->typecheck(class_table, env, current_class);
+
+    // Assert that the body's type is the return type (or a subclass)
+    Symbol body_type = expr->get_type();
+    if (!class_table->is_subclass_given_context(body_type, return_type, current_class)) {
+        class_table->semant_error(filename, this) << "Actual return type " << body_type << " of method " << name << " does not match declared return type " << return_type << ".\n";
+    }
+
+    env->exitscope();
+}
+
+
+void attr_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename();
+
+    //  [Attr-Init]
+    //
+    //   O_C(x) = T_0
+    //   O_C[SELF_TYPE_C / self], M, C |- e_1 : T_1
+    //   T_1 <= T_0
+    //  -------------------------------------------------------
+    //   O_C, M, C |- x : T_0 <- e_1;
+
+    // Get the type T_1 for e_1
+    init->typecheck(class_table, env, current_class);
+
+    // Ensure T_1 <= T_0
+    if (init->get_type() != No_type) {
+        if (!class_table->is_subclass_given_context(init->get_type(), type_decl, current_class)) {
+            class_table->semant_error(filename, this) << "Type " << init->get_type() << " of the initialization of attribute " << name << " does not match the declared type " << type_decl << ".\n";
+        }
+    }
+   
+    //  [Attr-No-Init]
+    //
+    //   O_C(x) = T
+    //  -------------------------------------------------------
+    //   O_C, M, C |- x : T
+
+    // init is no_expr, which turns into No_type, which code above handles regularly.
+}
+
+void no_expr_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    type = No_type;
+}
+
+void int_const_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [Int]
+    //
+    //   i is an integer constant
+    //  ----------------------------------
+    //   O, M, C |- i : Int
+
+    type = Int;
+}
+
+void bool_const_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [True]
+    // 
+    //  ----------------------------------
+    //   O, M, C |- true : Bool
+
+    //  [False]
+    //
+    //  ----------------------------------
+    //   O, M, C |- false : Bool
+
+    type = Bool;
+}
+
+void string_const_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [String]
+    //
+    //   s is a string constant
+    //  ----------------------------------
+    //   O, M, C |- s : String
+
+    type = Str;
+}
+
+void isvoid_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [Isvoid]
+    //
+    //   O, M, C |- e_1 : T_1
+    //  -------------------------------------------------------
+    //   O, M, C |- isvoid e_1 : Bool
+
+    e1->typecheck(class_table, env, current_class);
+    type = Bool;
+}
+
+void plus_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " + " << e2->get_type() << " in addition operation.\n";
+    }
+
+    type = Int;
+}
+
+void sub_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " - " << e2->get_type() << " in subtraction operation.\n";
+    }
+
+    type = Int;
+}
+
+void mul_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " * " << e2->get_type() << " in multiplication operation.\n";
+    }
+
+    type = Int;
+}
+
+void divide_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " / " << e2->get_type() << " in division operation.\n";
+    }
+
+    type = Int;
+}
+
+void branch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void object_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void neg_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void lt_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void leq_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void comp_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void block_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void eq_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void typcase_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}

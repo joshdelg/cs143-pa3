@@ -74,6 +74,7 @@ public:
 
   bool is_equal_class(Symbol a, Symbol b);
   bool is_subclass(Symbol a, Symbol b);
+  bool is_subclass_given_context(Symbol a, Symbol b, Symbol C);
   Symbol class_join(Symbol a, Symbol b);
 };
 

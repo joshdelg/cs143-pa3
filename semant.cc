@@ -138,22 +138,20 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         child_node->parent = parent_node;
     }
 
-    /* Check for cycles */
-    int num_classes = classes->len();
+    /* Check for cycles: walk parent pointers; more steps than there are
+       classes (including built-ins) means we are stuck in a cycle. */
+    size_t total_classes = gettable().front().size();
     for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
         Class_ c = classes->nth(i);
         InheritanceNodeP current_node = lookup(c->get_name());
 
-        /* If we ever end up traversing more nodes than there are classes, 
-           we're in a cycle of some sort.
-        */
-        int moves = 0;
+        size_t moves = 0;
         while (current_node != NULL) {
             current_node = current_node->parent;
             moves++;
-            if (moves > num_classes) {
+            if (moves > total_classes) {
                 semant_error(c) << "Inheritance cycle detected for class " << c->get_name() << ".\n";
-                return;
+                break;
             }
         }
     }
@@ -173,7 +171,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         }
     }
 
-    print_debug_hierarchy();
+    // print_debug_hierarchy();
 
     /* ClassTable should be complete */
     return;

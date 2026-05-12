@@ -94,11 +94,11 @@ struct FeatureOverrideInfo {
   virtual bool register_method_or_attribute(std::unordered_map<Symbol, FeatureOverrideInfoP>& methods, std::unordered_map<Symbol, FeatureOverrideInfoP>& attributes, std::string& error_message, Class_ current_class) = 0; \
   virtual Symbol get_type() = 0; \
   virtual Formals get_formals() = 0; \
-  virtual void typecheck(ClassTable *class_table, Environment *env) = 0;
+  virtual void typecheck(ClassTable *class_table, Environment *env, Symbol current_class) = 0;
 
 #define Feature_SHARED_EXTRAS			\
   void dump_with_types(ostream&,int); \
-  void typecheck(ClassTable *class_table, Environment *env);
+  void typecheck(ClassTable *class_table, Environment *env, Symbol current_class);
 
 #define method_EXTRAS \
   bool register_method_or_attribute(std::unordered_map<Symbol, FeatureOverrideInfoP>& methods, std::unordered_map<Symbol, FeatureOverrideInfoP>& attributes, std::string& error_message, Class_ current_class) override; \
@@ -123,7 +123,7 @@ struct FeatureOverrideInfo {
 
 #define branch_EXTRAS					\
   void dump_with_types(ostream&, int); \
-  void typecheck(ClassTable *class_table, Environment *env);
+  void typecheck(ClassTable *class_table, Environment *env, Symbol current_class);
 
 #define Expression_EXTRAS					\
   Symbol type;							\
@@ -132,11 +132,11 @@ struct FeatureOverrideInfo {
   virtual void dump_with_types(ostream&,int) = 0;		\
   void dump_type(ostream&, int);				\
   Expression_class() { type = (Symbol) NULL; } \
-  virtual void typecheck(ClassTable *class_table, Environment *env) = 0;
+  virtual void typecheck(ClassTable *class_table, Environment *env, Symbol current_class) = 0;
 
 #define Expression_SHARED_EXTRAS		\
   void dump_with_types(ostream&,int); \
-  void typecheck(ClassTable *class_table, Environment *env);
+  void typecheck(ClassTable *class_table, Environment *env, Symbol current_class);
 
 #define object_EXTRAS
 

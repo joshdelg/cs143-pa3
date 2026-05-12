@@ -90,49 +90,68 @@ static void initialize_constants(void) {
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
-    enterscope(); // global scope, we never actually use other scopes for the ClassTable
+    std::vector<bool> class_registered;
+
+    // Only use the global scope for the ClassTable
+    enterscope();
 
     // Must call after enterscope because cannot add classes to the table without a scope
     install_basic_classes();
-    /* Build flat SymbolTable of our classes, essentially a mapping from class
-       name to orphan InheritanceNodes.
-    */
+
+    // Build flat SymbolTable of our classes, essentially a mapping from class name to orphan InheritanceNodes.
     for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
         Class_ c = classes->nth(i);
         Symbol class_name = c->get_name();
 
-        if (class_name == SELF_TYPE) {
-            semant_error(c) << "Class cannot be named SELF_TYPE.\n";
-            return;
+        // Check for redefinition of basic classes (and SELF_TYPE — not a legal class name)
+        if (class_name == Int || class_name == Bool || class_name == Str || class_name == SELF_TYPE) {
+            semant_error(c) << "Redefinition of basic class " << class_name << ".\n";
+            class_registered.push_back(false);
+            continue;
         }
 
-        /* Build InheritanceNode */
+        // Check for redefinition of user-defined classes
+        if (probe(class_name) != NULL) {
+            semant_error(c) << "Class " << class_name << " was previously defined.\n";
+            class_registered.push_back(false);
+            continue;
+        }
+
+        // Otherwise, add the class to the SymbolTable
         InheritanceNodeP new_node = new InheritanceNode();
         new_node->class_node = c;
         new_node->name = class_name;
         new_node->parent = NULL;
-
-        /* Check for duplicates */
-        if (probe(class_name) != NULL) {
-            semant_error(c) << "Class " << class_name << " is already defined.\n";
-            return;
-        }
-
-        /* Add to SymbolTable */
         addid(class_name, new_node);
+        class_registered.push_back(true);
     }
 
     /* Link our InheritanceNodes together. */
-    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    int reg_idx = 0;
+    for (int i = classes->first(); classes->more(i); i = classes->next(i), reg_idx++) {
+        if (!class_registered[reg_idx]) {
+            continue;
+        }
         Class_ c = classes->nth(i);
         Symbol parent_name = c->get_parent();
 
         InheritanceNodeP child_node = lookup(c->get_name());
         InheritanceNodeP parent_node = lookup(parent_name);
+        // Must come before NULL check becuase SELF_TYPE doesn't actually exist
+        if (parent_name == SELF_TYPE) {
+            semant_error(c) << "Class " << c->get_name() << " cannot inherit class SELF_TYPE.\n";
+            continue;
+        }
+
+        if (parent_node == NULL) {
+            semant_error(c) << "Class " << c->get_name() << " inherits from an undefined class " << parent_name
+                            << ".\n";
+            continue;
+        }
 
         if (parent_name == Int || parent_name == Bool || parent_name == Str) {
-            semant_error(c) << "Class " << c->get_name() << " cannot inherit from basic class " << parent_name << ".\n";
-            return;
+            semant_error(c) << "Class " << c->get_name() << " cannot inherit class " << parent_name << ".\n";
+            continue;
         }
 
         child_node->parent = parent_node;
@@ -141,7 +160,11 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     /* Check for cycles: walk parent pointers; more steps than there are
        classes (including built-ins) means we are stuck in a cycle. */
     size_t total_classes = gettable().front().size();
-    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+    reg_idx = 0;
+    for (int i = classes->first(); classes->more(i); i = classes->next(i), reg_idx++) {
+        if (!class_registered[reg_idx]) {
+            continue;
+        }
         Class_ c = classes->nth(i);
         InheritanceNodeP current_node = lookup(c->get_name());
 
@@ -150,24 +173,10 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
             current_node = current_node->parent;
             moves++;
             if (moves > total_classes) {
-                semant_error(c) << "Inheritance cycle detected for class " << c->get_name() << ".\n";
+                semant_error(c) << "Class " << c->get_name() << ", or an ancestor of " << c->get_name()
+                                << ", is involved in an inheritance cycle.\n";
                 break;
             }
-        }
-    }
-
-    collect_methods_and_attributes();
-
-    /* Ensure there is a Main class and a main method */
-    InheritanceNode *main_node = lookup(Main);
-    if (main_node == NULL) {
-        semant_error() << "Class Main is not defined.\n";
-    } else {
-        Feature main_method = lookup_method(main_meth, Main);
-        if (main_method == NULL) {
-            semant_error(main_node->class_node) << "No 'main' method defined in class Main.\n";
-        } else if (main_method->get_formals()->len() != 0) {
-            semant_error(main_node->class_node) << "'main' method in class Main should have no arguments.\n";
         }
     }
 
@@ -175,6 +184,20 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
 
     /* ClassTable should be complete */
     return;
+}
+
+void ClassTable::check_main_class_and_method() {
+    InheritanceNode *main_node = lookup(Main);
+    if (main_node == NULL) {
+        semant_error() << "Class Main is not defined.\n";
+    } else {
+        Feature main_method = lookup_method(main_meth, Main);
+        if (main_method == NULL) {
+            semant_error(main_node->class_node) << "No 'main' method in class Main.\n";
+        } else if (main_method->get_formals()->len() != 0) {
+            semant_error(main_node->class_node) << "'main' method in class Main should have no arguments.\n";
+        }
+    }
 }
 
 void ClassTable::install_basic_classes() {
@@ -316,22 +339,25 @@ void ClassTable::install_basic_classes() {
     addid(Str, str_node);
 }
 
-void ClassTable::collect_methods_and_attributes() {
-    // Iterate through each class
+void ClassTable::collect_methods_and_attributes(Classes classes) {
     ScopeList& scope_list = gettable();
     if (scope_list.empty()) {
         cout << "No scopes in ClassTable" << endl;
         return;
     }
 
-    // We keep a set of classes we've already set up so we don't touch them.
     std::unordered_set<Symbol> initialized;
 
-    Scope first_scope = scope_list.front();
-    for (auto entry = first_scope.begin(); entry != first_scope.end(); entry++) {
-        InheritanceNodeP node = entry->get_info();
-        if (initialized.count(node->name)) continue;
-
+    // Iterate in program class order, not symbol table order to match error messages
+    for (int ci = classes->first(); classes->more(ci); ci = classes->next(ci)) {
+        Class_ prog_class = classes->nth(ci);
+        InheritanceNodeP node = lookup(prog_class->get_name());
+        if (node == NULL) {
+            continue;
+        }
+        if (initialized.count(node->name)) {
+            continue;
+        }
 
         // We want to traverse from top->down so we can do overriding correctly.
         std::vector<InheritanceNodeP> chain;
@@ -531,6 +557,11 @@ bool method_class::register_method_or_attribute(std::unordered_map<Symbol, Featu
     FeatureOverrideInfoP existing = methods[name];
 
     if (existing != NULL) {
+        if (existing->owner_class == current_class) {
+            error_message = std::string("Method ") + n + " is multiply defined.";
+            return false;
+        }
+        
         Feature parent_m = existing->feature;
         if (get_formals()->len() != parent_m->get_formals()->len()) {
             error_message =
@@ -599,16 +630,13 @@ void program_class::semant() {
     /* ClassTable constructor may do some semantic analysis */
    ClassTableP classtable = new ClassTable(classes);
 
-   if (classtable->errors()) {
-      cerr << "Compilation halted due to static semantic errors." << endl;
-      exit(1);
+   Environment *env = new Environment();
+   if (classtable->errors() == 0) {
+     classtable->collect_methods_and_attributes(classes);
+     classtable->check_main_class_and_method();
+     typecheck(classtable, env);
    }
 
-   /* Now, begin resolving names/scope and typechecking */
-   Environment *env = new Environment();
-   typecheck(classtable, env);
-
-    // Check for errors again after typechecking.
     if (classtable->errors()) {
         cerr << "Compilation halted due to static semantic errors." << endl;
         exit(1);
@@ -700,7 +728,7 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
             class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " cannot have type SELF_TYPE.\n";
         }
         if (seen_formals.count(cur_formal_name)) {
-            class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " is already defined.\n";
+            class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " is multiply defined.\n";
             continue;
         }
         seen_formals.insert(cur_formal_name);
@@ -716,6 +744,11 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 
     // Assert that the body's type is the return type (or a subclass)
     Symbol body_type = expr->get_type();
+
+    // TODO: Remove once implemented
+    if (body_type == NULL) {
+        body_type = No_type;
+    }
     if (!class_table->is_subclass_given_context(body_type, return_type, current_class)) {
         class_table->semant_error(filename, this) << "Inferred return type " << body_type << " of method " << name << " does not conform to declared return type " << return_type << ".\n";
     }

@@ -1,10 +1,20 @@
 -- inheritance cycle: A -> B -> C -> A, plus a self-loop on D
 
-class A inherits B { };
-class B inherits C { };
-class C inherits A { };
+class A inherits B {
+    foo(): Int {1};
+};
 
-class D inherits D { };
+class B inherits C {
+    bar(): Int {2};
+};
+class C inherits A {
+    baz(): Bool {true};
+};
+
+class D inherits D {
+    hello(): Bool {true};
+    hello: String <- "Hello!";
+};
 
 class Main {
     main() : Object { 0 };

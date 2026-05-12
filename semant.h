@@ -50,14 +50,14 @@ private:
 
   void print_debug_hierarchy();
 
-  /**
-   * Collects all the methods and attributes of the classes in the program
-   * and adds them to the symbol table. Includes methods and attributes inherited from parent classes.
-   */
-  void collect_methods_and_attributes();
 public:
   ClassTable(Classes);
   int errors() { return semant_errors; }
+
+  /** Call only when errors() is still 0 after construction (valid inheritance graph). */
+  void collect_methods_and_attributes(Classes classes);
+  void check_main_class_and_method();
+
   std::ostream& semant_error();
   std::ostream& semant_error(Class_ c);
   std::ostream& semant_error(Symbol filename, tree_node *t);

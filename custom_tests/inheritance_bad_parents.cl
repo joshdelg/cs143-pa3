@@ -13,3 +13,7 @@ class F inherits IO { };
 class Main {
     main() : Object { 0 };
 };
+
+-- Redefinition of basic classes
+class Int { };
+class SELF_TYPE { };

@@ -739,7 +739,15 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
         env->addid(cur_formal_name, info);
     }
 
-    // Continue recursion
+    // Check that the return type exists
+    // If not, set return type to Object to avoid redundant error with body typecheck
+    InheritanceNode *return_node = class_table->lookup(return_type);
+    if (return_node == NULL) {
+        class_table->semant_error(filename, this) << "Undefined return type " << return_type << " in method " << name << ".\n";
+        this->return_type = Object;
+    }
+
+    // Typecheck body
     expr->typecheck(class_table, env, current_class);
 
     // Assert that the body's type is the return type (or a subclass)
@@ -919,7 +927,22 @@ void branch_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 }
 
 void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    InheritanceNode *node = class_table->lookup(this->type_name);
+
+    if (node == NULL) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "'new' used with undefined class " << this->type_name << ".\n";
+
+        this->set_type(No_type);
+        return;
+    }
+
+    if (node->class_node->get_name() == SELF_TYPE) {
+        this->set_type(this->type_name);
+        return;
+    }
+
+    this->set_type(node->class_node->get_name());
 }
 
 void object_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

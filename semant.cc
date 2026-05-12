@@ -483,6 +483,26 @@ bool ClassTable::is_subclass(Symbol child, Symbol ancestor)
     return false;
 }
 
+// This subclass function does a quick check for SELF_TYPE and redirects to the normal is_subclass function if applicable.
+bool ClassTable::is_subclass_given_context(Symbol a, Symbol b, Symbol C) {
+    Symbol actual_a;
+    Symbol actual_b;
+
+    if (a == SELF_TYPE) {
+        actual_a = C;
+    } else {
+        actual_a = a;
+    }
+
+    if (b == SELF_TYPE) {
+        actual_b = C;
+    } else {
+        actual_b = b;
+    }
+
+    return is_subclass(actual_a, actual_b);
+}
+
 Symbol ClassTable::class_join(Symbol a, Symbol b) 
 {
     InheritanceNode *node_a = lookup(a);
@@ -640,7 +660,60 @@ void class__class::typecheck(ClassTable *class_table, Environment *env) {
 
     // Continue recursion
     for (int i = features->first(); features->more(i); i = features->next(i)) {
-        features->nth(i)->typecheck(class_table, env);
+        features->nth(i)->typecheck(class_table, env, name);
+    }
+
+    env->exitscope();
+}
+
+
+void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename();
+    env->enterscope();
+
+    // [Method]
+    //
+    // M(C,f) = (T1, ..., T_n, T_0)
+    // O_C[SELF_TYPE_C / self][T_1/x_1]...[T_n/x_n], M, C |- e : T_0'
+    // T_0' <= {  SELF_TYPE_C   if T_0 = SELF_TYPE
+    //            T_0           otherwise
+    //------------------------------------------------------------------
+    // O_C , M, C |- f(x1 : T1, ..., xn : Tn) : T_0 { e }
+
+    // Bind every formal parameters to its declared type for the body of the method.
+    // (The O_C[SELF_TYPE_C / self][T_1/x_1]...[T_n/x_n] part)
+    std::unordered_set<Symbol> seen_formals; // Track duplicates
+    for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
+        Formal cur_formal = formals->nth(i);
+        Symbol cur_formal_name = cur_formal->get_name();
+        Symbol cur_formal_type = cur_formal->get_type();
+
+        if (cur_formal_name == self) {
+            class_table->semant_error(filename, cur_formal) << "'self' cannot be a formal parameter.\n";
+            continue;
+        }
+        if (cur_formal_type == SELF_TYPE) {
+            class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " cannot have type SELF_TYPE.\n";
+        }
+        if (seen_formals.count(cur_formal_name)) {
+            class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " is already defined.\n";
+            continue;
+        }
+        seen_formals.insert(cur_formal_name);
+
+        TypeInfo *info = new TypeInfo();
+        info->type = cur_formal_type;
+        info->object = NULL;
+        env->addid(cur_formal_name, info);
+    }
+
+    // Continue recursion
+    expr->typecheck(class_table, env, current_class);
+
+    // Assert that the body's type is the return type (or a subclass)
+    Symbol body_type = expr->get_type();
+    if (!class_table->is_subclass_given_context(body_type, return_type, current_class)) {
+        class_table->semant_error(filename, this) << "Actual return type " << body_type << " of method " << name << " does not match declared return type " << return_type << ".\n";
     }
 
     env->exitscope();

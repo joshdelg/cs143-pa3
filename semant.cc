@@ -191,7 +191,7 @@ void ClassTable::check_main_class_and_method() {
     if (main_node == NULL) {
         semant_error() << "Class Main is not defined.\n";
     } else {
-        Feature main_method = lookup_method(main_meth, Main);
+        Feature main_method = lookup_method(main_meth, Main, Main);
         if (main_method == NULL) {
             semant_error(main_node->class_node) << "No 'main' method in class Main.\n";
         } else if (main_method->get_formals()->len() != 0) {
@@ -459,9 +459,9 @@ void ClassTable::print_debug_hierarchy() {
     }
 }
 
-Feature ClassTable::lookup_method(Symbol name, Symbol class_name) {
+Feature ClassTable::lookup_method(Symbol name, Symbol class_name, Symbol current_class) {
     // NULL if class not found
-    InheritanceNode *node = lookup(class_name);
+    InheritanceNode *node = lookup_in_context(class_name, current_class);
     if (node == NULL) return NULL;
 
     // ... or if method not found (.find allows a safe lookup)
@@ -474,9 +474,9 @@ Feature ClassTable::lookup_method(Symbol name, Symbol class_name) {
 }
 
 
-Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name) {
+Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name, Symbol current_class) {
     // NULL if class not found
-    InheritanceNode *node = lookup(class_name); 
+    InheritanceNode *node = lookup_in_context(class_name, current_class);
     if (node == NULL) return NULL;
 
     // ... or if attribute not found (.find allows a safe lookup)
@@ -485,6 +485,11 @@ Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name) {
 
     // it entry -> FeatureOverrideInfo -> feature
     return it->second->feature;
+}
+
+InheritanceNode *ClassTable::lookup_in_context(Symbol type_name, Symbol current_class) {
+    Symbol key = (type_name == SELF_TYPE) ? current_class : type_name;
+    return lookup(key);
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)
@@ -741,7 +746,7 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 
     // Check that the return type exists
     // If not, set return type to Object to avoid redundant error with body typecheck
-    InheritanceNode *return_node = class_table->lookup(return_type);
+    InheritanceNode *return_node = class_table->lookup_in_context(return_type, current_class);
     if (return_node == NULL) {
         class_table->semant_error(filename, this) << "Undefined return type " << return_type << " in method " << name << ".\n";
         this->return_type = Object;
@@ -927,7 +932,7 @@ void branch_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 }
 
 void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    InheritanceNode *node = class_table->lookup(this->type_name);
+    InheritanceNode *node = class_table->lookup_in_context(this->type_name, current_class);
 
     if (node == NULL) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
@@ -937,12 +942,12 @@ void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
         return;
     }
 
-    if (node->class_node->get_name() == SELF_TYPE) {
-        this->set_type(this->type_name);
-        return;
+    // Still need to special case SELF_TYPE because static type of new SELF_TYPE is still SELF_TYPE
+    if (this->type_name == SELF_TYPE) {
+        this->set_type(SELF_TYPE);
+    } else {
+        this->set_type(node->class_node->get_name());
     }
-
-    this->set_type(node->class_node->get_name());
 }
 
 void object_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

@@ -69,8 +69,10 @@ public:
 
    * Returns the bottommost overload found on the inheritance hierarchy
   */
-  Feature lookup_method(Symbol name, Symbol class_name);
-  Feature lookup_attribute(Symbol name, Symbol class_name);
+  Feature lookup_method(Symbol name, Symbol class_name, Symbol current_class);
+  Feature lookup_attribute(Symbol name, Symbol class_name, Symbol current_class);
+  /** Resolve `SELF_TYPE` as class `current_class`, then `lookup`. */
+  InheritanceNode *lookup_in_context(Symbol type_name, Symbol current_class);
 
   bool is_equal_class(Symbol a, Symbol b);
   bool is_subclass(Symbol a, Symbol b);

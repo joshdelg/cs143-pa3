@@ -925,7 +925,17 @@ void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 }
 
 void object_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    TypeInfo *info = env->lookup(name);
+    
+    if (info == NULL) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Undeclared identifier " << name << ".\n";
+
+        this->set_type(No_type);
+        return;
+    }
+
+    this->set_type(info->type);
 }
 
 void neg_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

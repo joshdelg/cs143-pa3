@@ -19,6 +19,10 @@ class Main {
         1 + 2 * 3 / 43 * 2 + 9 + 10 - 1 / 4
     };
 
+    main6(): Bool {
+        isvoid (1 + 2)
+    };
+
     myInt: Int <- 16;
     myInt2: Int <- 16 + 8;
     myInt3: Int <- 15 - 4 + 6 * 7 / 4;

@@ -749,3 +749,196 @@ void attr_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     // init is no_expr, which turns into No_type, which code above handles regularly.
 }
+
+void no_expr_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    type = No_type;
+}
+
+void int_const_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [Int]
+    //
+    //   i is an integer constant
+    //  ----------------------------------
+    //   O, M, C |- i : Int
+
+    type = Int;
+}
+
+void bool_const_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [True]
+    // 
+    //  ----------------------------------
+    //   O, M, C |- true : Bool
+
+    //  [False]
+    //
+    //  ----------------------------------
+    //   O, M, C |- false : Bool
+
+    type = Bool;
+}
+
+void string_const_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [String]
+    //
+    //   s is a string constant
+    //  ----------------------------------
+    //   O, M, C |- s : String
+
+    type = Str;
+}
+
+void isvoid_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [Isvoid]
+    //
+    //   O, M, C |- e_1 : T_1
+    //  -------------------------------------------------------
+    //   O, M, C |- isvoid e_1 : Bool
+
+    e1->typecheck(class_table, env, current_class);
+    type = Bool;
+}
+
+void plus_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " + " << e2->get_type() << " in addition operation.\n";
+    }
+
+    type = Int;
+}
+
+void sub_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " - " << e2->get_type() << " in subtraction operation.\n";
+    }
+
+    type = Int;
+}
+
+void mul_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " * " << e2->get_type() << " in multiplication operation.\n";
+    }
+
+    type = Int;
+}
+
+void divide_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [Arith]
+    
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {*, +, -, /}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Int
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " / " << e2->get_type() << " in division operation.\n";
+    }
+
+    type = Int;
+}
+
+void branch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void object_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void neg_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void lt_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void leq_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void comp_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void block_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void eq_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}
+
+void typcase_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    return;
+}

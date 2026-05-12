@@ -993,7 +993,54 @@ void eq_class::typecheck(ClassTable *class_table, Environment *env, Symbol curre
 }
 
 void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    // First, everything needs a type.
+    // Typecheck the reciever (e0)
+    expr->typecheck(class_table, env, current_class);
+
+    // Typecheck the args
+    for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
+        actual->nth(i)->typecheck(class_table, env, current_class);
+    }
+
+    // Lookup method on e0's class -- will resolve SELF_TYPE to current class automatically
+    Feature method = class_table->lookup_method(name, expr->get_type(), current_class);
+
+    // Catches both method doesn't exist on class and the receiver isn't a valid class
+    if (method == NULL) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Dispatch to undefined method " << name << ".\n";
+        this->set_type(No_type);
+        return;
+    }
+
+    // Check number of arguments
+    if (actual->len() != method->get_formals()->len()) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Method " << name << " called with wrong number of arguments.\n";
+        this->set_type(No_type);
+        return;
+    }
+
+    // Typecheck each actual argument
+    for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
+        Symbol actual_arg_type = actual->nth(i)->get_type();
+        Symbol formal_arg_type = method->get_formals()->nth(i)->get_type();
+        Symbol formal_arg_name = method->get_formals()->nth(i)->get_name();
+
+        if (!class_table->is_subclass_given_context(actual_arg_type, formal_arg_type, current_class)) {
+            class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+                << "In call of method " << name << ", type " << actual_arg_type << " of parameter " << formal_arg_name << " does not conform to declared type " << formal_arg_type << ".\n";
+
+            /* Continue typechecking args */
+        }
+    }
+
+    // Set type to return type of method (use static type of e0 if SELF_TYPE)
+    if (method->get_type() == SELF_TYPE) {
+        this->set_type(current_class);
+    } else {
+        this->set_type(method->get_type());
+    }
 }
 
 void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

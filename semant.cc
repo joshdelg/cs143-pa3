@@ -668,7 +668,7 @@ void class__class::typecheck(ClassTable *class_table, Environment *env) {
 
 
 void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    Symbol filename = class_table->lookup(current_class)->class_node->get_filename();
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename(); // for error messages
     env->enterscope();
 
     // [Method]
@@ -717,4 +717,35 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
     }
 
     env->exitscope();
+}
+
+
+void attr_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename();
+
+    //  [Attr-Init]
+    //
+    //   O_C(x) = T_0
+    //   O_C[SELF_TYPE_C / self], M, C |- e_1 : T_1
+    //   T_1 <= T_0
+    //  -------------------------------------------------------
+    //   O_C, M, C |- x : T_0 <- e_1;
+
+    // Get the type T_1 for e_1
+    init->typecheck(class_table, env, current_class);
+
+    // Ensure T_1 <= T_0
+    if (init->get_type() != No_type) {
+        if (!class_table->is_subclass_given_context(init->get_type(), type_decl, current_class)) {
+            class_table->semant_error(filename, this) << "Type " << init->get_type() << " of the initialization of attribute " << name << " does not match the declared type " << type_decl << ".\n";
+        }
+    }
+   
+    //  [Attr-No-Init]
+    //
+    //   O_C(x) = T
+    //  -------------------------------------------------------
+    //   O_C, M, C |- x : T
+
+    // init is no_expr, which turns into No_type, which code above handles regularly.
 }

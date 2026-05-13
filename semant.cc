@@ -488,8 +488,14 @@ Feature ClassTable::lookup_attribute(Symbol name, Symbol class_name, Symbol curr
 }
 
 InheritanceNode *ClassTable::lookup_in_context(Symbol type_name, Symbol current_class) {
-    Symbol key = (type_name == SELF_TYPE) ? current_class : type_name;
-    return lookup(key);
+    return lookup(normalize_maybe_self_type(type_name, current_class));
+}
+
+Symbol ClassTable::normalize_maybe_self_type(Symbol t, Symbol current_class) {
+    if (t == SELF_TYPE) {
+        return current_class;
+    }
+    return t;
 }
 
 bool ClassTable::is_equal_class(Symbol a, Symbol b)
@@ -514,20 +520,8 @@ bool ClassTable::is_subclass(Symbol child, Symbol ancestor)
 
 // This subclass function does a quick check for SELF_TYPE and redirects to the normal is_subclass function if applicable.
 bool ClassTable::is_subclass_given_context(Symbol a, Symbol b, Symbol C) {
-    Symbol actual_a;
-    Symbol actual_b;
-
-    if (a == SELF_TYPE) {
-        actual_a = C;
-    } else {
-        actual_a = a;
-    }
-
-    if (b == SELF_TYPE) {
-        actual_b = C;
-    } else {
-        actual_b = b;
-    }
+    Symbol actual_a = normalize_maybe_self_type(a, C);
+    Symbol actual_b = normalize_maybe_self_type(b, C);
 
     return is_subclass(actual_a, actual_b);
 }
@@ -785,7 +779,10 @@ void attr_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
     // Ensure T_1 <= T_0
     if (init->get_type() != No_type) {
         if (!class_table->is_subclass_given_context(init->get_type(), type_decl, current_class)) {
-            class_table->semant_error(filename, this) << "Inferred type " << init->get_type() << " of initialization of attribute " << name << " does not conform to declared type " << type_decl << ".\n";
+            class_table->semant_error(filename, this)
+                << "Inferred type " << init->get_type() << " of initialization of attribute " << name
+                << " does not conform to declared type "
+                << class_table->normalize_maybe_self_type(type_decl, current_class) << ".\n";
         }
     }
    
@@ -1029,18 +1026,16 @@ void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol
 
         if (!class_table->is_subclass_given_context(actual_arg_type, formal_arg_type, current_class)) {
             class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-                << "In call of method " << name << ", type " << actual_arg_type << " of parameter " << formal_arg_name << " does not conform to declared type " << formal_arg_type << ".\n";
+                << "In call of method " << name << ", type " << actual_arg_type << " of parameter " << formal_arg_name << " does not conform to declared type "
+                << formal_arg_type << ".\n";
 
             /* Continue typechecking args */
         }
     }
 
-    // Set type to return type of method (use static type of e0 if SELF_TYPE)
-    if (method->get_type() == SELF_TYPE) {
-        this->set_type(current_class);
-    } else {
-        this->set_type(method->get_type());
-    }
+    // Set the dispatch's type to the function's normalized return type:
+    // i.e. if f returns SELF_TYPE, the type of the dispatch is the *unnormalized* type of the receiver
+    this->set_type(class_table->normalize_maybe_self_type(method->get_type(), expr->get_type()));
 }
 
 void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

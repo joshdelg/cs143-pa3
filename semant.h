@@ -73,6 +73,8 @@ public:
   Feature lookup_attribute(Symbol name, Symbol class_name, Symbol current_class);
   /** Resolve `SELF_TYPE` as class `current_class`, then `lookup`. */
   InheritanceNode *lookup_in_context(Symbol type_name, Symbol current_class);
+  /** If `t` is `SELF_TYPE`, return `current_class`; otherwise return `t`. */
+  Symbol normalize_maybe_self_type(Symbol t, Symbol current_class);
 
   bool is_equal_class(Symbol a, Symbol b);
   bool is_subclass(Symbol a, Symbol b);

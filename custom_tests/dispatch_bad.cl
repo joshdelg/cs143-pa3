@@ -72,6 +72,18 @@ class Main {
         (new A).fooSelf()
     };
 
+    notSelf(): Int {
+        fooSelfSelf()
+    };
+
+    passOther(): Object {
+        fooTakesSelfType(5)
+    };
+
+    passSelf(): Object {
+        fooPassedSelfType(self)
+    };
+
     foo(): Int {
         5
     };
@@ -86,6 +98,22 @@ class Main {
 
     fooSelf(): SELF_TYPE {
         new SELF_TYPE
+    };
+
+    fooSelfSelf(): SELF_TYPE {
+        self
+    };
+
+    fooTakesSelfType(arg1: SELF_TYPE): Bool {
+        true
+    };
+
+    fooPassedSelfType(arg1: Int): Int {
+        arg1
+    };
+
+    fooSelf2(): SELF_TYPE {
+        5
     };
 };
 

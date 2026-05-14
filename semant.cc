@@ -1069,7 +1069,23 @@ void comp_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 }
 
 void block_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    //   [Sequence]
+    //
+    //   O, M, C |- e_1 : T_1
+    //   O, M, C |- e_2 : T_2
+    //        ...
+    //   O, M, C |- e_n : T_n
+    //  -------------------------------------------------------
+    //   O, M, C |- { e_1; e_2; ... e_n; } : T_n
+
+    // type of last expression (iterate through each expression)
+    Symbol block_type = Object;
+    for (int i = body->first(); body->more(i); i = body->next(i)) {
+        Expression e_i = body->nth(i);
+        e_i->typecheck(class_table, env, current_class);
+        block_type = e_i->get_type();
+    }
+    type = block_type;
 }
 
 void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

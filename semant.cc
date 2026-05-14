@@ -1196,7 +1196,32 @@ void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env,
 }
 
 void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    //  [ASSIGN]
+    //
+    //   O(Id) = T
+    //   O, M, C |- e_1 : T'
+    //   T' <= T
+    //  ----------------------------------
+    //   O, M, C |- Id <- e_1 : T'
+
+    TypeInfo *info = env->lookup(name);
+    if (info == NULL) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Assignment to undeclared identifier " << name << ".\n";
+        expr->typecheck(class_table, env, current_class);
+        type = Object;
+        return;
+    }
+
+    expr->typecheck(class_table, env, current_class);
+    Symbol expr_type = expr->get_type();
+
+    if (!class_table->is_subclass_given_context(expr_type, info->type, current_class)) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Type " << expr_type << " of assigned expression does not conform to declared type " << info->type << " of identifier " << name << ".\n";
+    }
+
+    type = expr_type;
 }
 
 void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

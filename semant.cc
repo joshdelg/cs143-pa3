@@ -91,6 +91,7 @@ static void initialize_constants(void) {
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     std::vector<bool> class_registered;
+    std::vector<int>  class_indices;   // list-indices in forward source order
 
     // Only use the global scope for the ClassTable
     enterscope();
@@ -102,6 +103,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
         Class_ c = classes->nth(i);
         Symbol class_name = c->get_name();
+        class_indices.push_back(i);
 
         // Check for redefinition of basic classes (and SELF_TYPE — not a legal class name)
         if (class_name == Int || class_name == Bool || class_name == Str || class_name == SELF_TYPE) {
@@ -126,13 +128,12 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         class_registered.push_back(true);
     }
 
-    /* Link our InheritanceNodes together. */
-    int reg_idx = 0;
-    for (int i = classes->first(); classes->more(i); i = classes->next(i), reg_idx++) {
-        if (!class_registered[reg_idx]) {
+    /* Link our InheritanceNodes together (turns out reference semant does it in reverse like this). */
+    for (int ri = (int)class_indices.size() - 1; ri >= 0; ri--) {
+        if (!class_registered[ri]) {
             continue;
         }
-        Class_ c = classes->nth(i);
+        Class_ c = classes->nth(class_indices[ri]);
         Symbol parent_name = c->get_parent();
 
         InheritanceNodeP child_node = lookup(c->get_name());
@@ -158,14 +159,14 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     }
 
     /* Check for cycles: walk parent pointers; more steps than there are
-       classes (including built-ins) means we are stuck in a cycle. */
+       classes (including built-ins) means we are stuck in a cycle.
+       This part is also in reverse order to match the reference . */
     size_t total_classes = gettable().front().size();
-    reg_idx = 0;
-    for (int i = classes->first(); classes->more(i); i = classes->next(i), reg_idx++) {
-        if (!class_registered[reg_idx]) {
+    for (int ri = (int)class_indices.size() - 1; ri >= 0; ri--) {
+        if (!class_registered[ri]) {
             continue;
         }
-        Class_ c = classes->nth(i);
+        Class_ c = classes->nth(class_indices[ri]);
         InheritanceNodeP current_node = lookup(c->get_name());
 
         size_t moves = 0;

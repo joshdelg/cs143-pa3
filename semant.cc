@@ -961,20 +961,85 @@ void object_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
     this->set_type(info->type);
 }
 
-void neg_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+void neg_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) { 
+    //  [Neg]
+    //
+    //   O, M, C |- e_1 : Int
+    //  -------------------------------------------------------
+    //   O, M, C |- ~e_1 : Int
+
+    e1->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Argument of Negation has type " << e1->get_type() << " instead of Int.\n";
+    }
+
+    type = Int;
 }
 
 void lt_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    // "less-than"
+
+    //  [Compare]
+    //
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {<, <=}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Bool
+
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " < " << e2->get_type() << "\n";
+    }
+
+    type = Bool;
 }
 
 void leq_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    // "less-than or equal-to"
+    
+    //  [Compare]
+    //
+    //   O, M, C |- e_1 : Int
+    //   O, M, C |- e_2 : Int
+    //   op in {<, <=}
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 op e_2 : Bool
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Int || e2->get_type() != Int) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "non-Int arguments: " << e1->get_type() << " <= " << e2->get_type() << "\n";
+    }
+
+    type = Bool;
 }
 
 void comp_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    // "complement"
+
+    //  [Not]
+    //
+    //   O, M, C |- e_1 : Bool
+    //  -------------------------------------------------------
+    //   O, M, C |- not e_1 : Bool
+
+    e1->typecheck(class_table, env, current_class);
+
+    if (e1->get_type() != Bool) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Argument of Not has type " << e1->get_type() << " instead of Bool.\n";
+    }
+    
+    type = Bool;
 }
 
 void block_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

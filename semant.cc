@@ -518,12 +518,19 @@ bool ClassTable::is_subclass(Symbol child, Symbol ancestor)
     return false;
 }
 
-// This subclass function does a quick check for SELF_TYPE and redirects to the normal is_subclass function if applicable.
+// Subclass check that includes SELF_TYPE (SELF_TYPE is asymmetric. T <= SELF_TYPE_C is NEVER true for concrete T)
 bool ClassTable::is_subclass_given_context(Symbol a, Symbol b, Symbol C) {
+    if (a == SELF_TYPE && b == SELF_TYPE) return true;
+    if (b == SELF_TYPE) return false;
     Symbol actual_a = normalize_maybe_self_type(a, C);
-    Symbol actual_b = normalize_maybe_self_type(b, C);
+    return is_subclass(actual_a, b);
+}
 
-    return is_subclass(actual_a, actual_b);
+// True iff both operand types are real (not No_type) and at least one is not
+// Int. Suppresses cascade errors from sub-expressions that already failed and
+// produced No_type. Used by binary arithmetic / comparison ops.
+bool ClassTable::is_non_int_args(Symbol t1, Symbol t2) {
+    return t1 != No_type && t2 != No_type && (t1 != Int || t2 != Int);
 }
 
 Symbol ClassTable::class_join(Symbol a, Symbol b) 
@@ -600,6 +607,13 @@ bool attr_class::register_method_or_attribute(std::unordered_map<Symbol, Feature
                                               std::unordered_map<Symbol, FeatureOverrideInfoP> &attributes,
                                               std::string &error_message, Class_ current_class) {
     (void)methods;
+
+    // Refuse to register 'self' as an attribute so we don't overwrite the self: SELF_TYPE
+    if (name == self) {
+        error_message = "'self' cannot be the name of an attribute.";
+        return false;
+    }
+
     FeatureOverrideInfoP existing = attributes[name];
     if (existing != NULL) {
         if (existing->owner_class == current_class) {
@@ -727,7 +741,7 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
         Symbol cur_formal_type = cur_formal->get_type();
 
         if (cur_formal_name == self) {
-            class_table->semant_error(filename, cur_formal) << "'self' cannot be a formal parameter.\n";
+            class_table->semant_error(filename, cur_formal) << "'self' cannot be the name of a formal parameter.\n";
             continue;
         }
         if (cur_formal_type == SELF_TYPE) {
@@ -863,9 +877,11 @@ void plus_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
     e1->typecheck(class_table, env, current_class);
     e2->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Int || e2->get_type() != Int) {
+    Symbol t1 = e1->get_type();
+    Symbol t2 = e2->get_type();
+    if (class_table->is_non_int_args(t1, t2)) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " + " << e2->get_type() << "\n";
+            << "non-Int arguments: " << t1 << " + " << t2 << "\n";
     }
 
     type = Int;
@@ -883,9 +899,11 @@ void sub_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
     e1->typecheck(class_table, env, current_class);
     e2->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Int || e2->get_type() != Int) {
+    Symbol t1 = e1->get_type();
+    Symbol t2 = e2->get_type();
+    if (class_table->is_non_int_args(t1, t2)) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " - " << e2->get_type() << "\n";
+            << "non-Int arguments: " << t1 << " - " << t2 << "\n";
     }
 
     type = Int;
@@ -903,9 +921,11 @@ void mul_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
     e1->typecheck(class_table, env, current_class);
     e2->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Int || e2->get_type() != Int) {
+    Symbol t1 = e1->get_type();
+    Symbol t2 = e2->get_type();
+    if (class_table->is_non_int_args(t1, t2)) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " * " << e2->get_type() << "\n";
+            << "non-Int arguments: " << t1 << " * " << t2 << "\n";
     }
 
     type = Int;
@@ -923,9 +943,11 @@ void divide_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
     e1->typecheck(class_table, env, current_class);
     e2->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Int || e2->get_type() != Int) {
+    Symbol t1 = e1->get_type();
+    Symbol t2 = e2->get_type();
+    if (class_table->is_non_int_args(t1, t2)) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " / " << e2->get_type() << "\n";
+            << "non-Int arguments: " << t1 << " / " << t2 << "\n";
     }
 
     type = Int;
@@ -1010,9 +1032,10 @@ void neg_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
 
     e1->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Int) {
+    Symbol t1 = e1->get_type();
+    if (t1 != No_type && t1 != Int) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Argument of '~' has type " << e1->get_type() << " instead of Int.\n";
+            << "Argument of '~' has type " << t1 << " instead of Int.\n";
     }
 
     type = Int;
@@ -1033,9 +1056,11 @@ void lt_class::typecheck(ClassTable *class_table, Environment *env, Symbol curre
     e1->typecheck(class_table, env, current_class);
     e2->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Int || e2->get_type() != Int) {
+    Symbol t1 = e1->get_type();
+    Symbol t2 = e2->get_type();
+    if (class_table->is_non_int_args(t1, t2)) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " < " << e2->get_type() << "\n";
+            << "non-Int arguments: " << t1 << " < " << t2 << "\n";
     }
 
     type = Bool;
@@ -1055,9 +1080,11 @@ void leq_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
     e1->typecheck(class_table, env, current_class);
     e2->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Int || e2->get_type() != Int) {
+    Symbol t1 = e1->get_type();
+    Symbol t2 = e2->get_type();
+    if (class_table->is_non_int_args(t1, t2)) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "non-Int arguments: " << e1->get_type() << " <= " << e2->get_type() << "\n";
+            << "non-Int arguments: " << t1 << " <= " << t2 << "\n";
     }
 
     type = Bool;
@@ -1074,9 +1101,10 @@ void comp_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     e1->typecheck(class_table, env, current_class);
 
-    if (e1->get_type() != Bool) {
+    Symbol t1 = e1->get_type();
+    if (t1 != No_type && t1 != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Argument of 'not' has type " << e1->get_type() << " instead of Bool.\n";
+            << "Argument of 'not' has type " << t1 << " instead of Bool.\n";
     }
     
     type = Bool;
@@ -1112,7 +1140,8 @@ void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     pred->typecheck(class_table, env, current_class);
 
-    if (pred->get_type() != Bool) {
+    Symbol pred_type = pred->get_type();
+    if (pred_type != No_type && pred_type != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
             << "Loop predicate does not have type Bool.\n";
     }
@@ -1139,7 +1168,8 @@ void eq_class::typecheck(ClassTable *class_table, Environment *env, Symbol curre
     Symbol T_1 = e1->get_type();
     Symbol T_2 = e2->get_type();
 
-    if ((T_1 == Int || T_1 == Str || T_1 == Bool) || (T_2 == Int || T_2 == Str || T_2 == Bool)) {
+    if (T_1 != No_type && T_2 != No_type &&
+        ((T_1 == Int || T_1 == Str || T_1 == Bool) || (T_2 == Int || T_2 == Str || T_2 == Bool))) {
         if (T_1 != T_2) {
             class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
                 << "Illegal comparison with a basic type.\n";
@@ -1173,6 +1203,14 @@ void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol
     // Typecheck the args
     for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
         actual->nth(i)->typecheck(class_table, env, current_class);
+    }
+
+    // The reference uses the __BOTTOM to signal an earlier failed typecheck but we already used No_type... oops!
+    if (expr->get_type() == No_type) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Dispatch on type _bottom not allowed.  The type _bottom is the type of throw expressions.\n";
+        this->set_type(No_type);
+        return;
     }
 
     // Lookup method on e0's class -- will resolve SELF_TYPE to current class automatically
@@ -1235,6 +1273,13 @@ void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env,
     // Typecheck actuals
     for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
         actual->nth(i)->typecheck(class_table, env, current_class);
+    }
+
+    if (expr->get_type() == No_type) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Dispatch on type _bottom not allowed.  The type _bottom is the type of throw expressions.\n";
+        this->set_type(No_type);
+        return;
     }
 
     // Forbid SELF_TYPE
@@ -1342,7 +1387,8 @@ void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     pred->typecheck(class_table, env, current_class);
 
-    if (pred->get_type() != Bool) {
+    Symbol pred_type = pred->get_type();
+    if (pred_type != No_type && pred_type != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
             << "Predicate of conditional does not have type Bool.\n";
     }
@@ -1364,28 +1410,52 @@ void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
     //  -------------------------------------------------------
     //   O, M, C |- let x : T_0 <- e_1 in e_2 : T_2
 
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename();
+
+    // Continue typechecking but don't bind self
+    bool self_bind = (identifier == self);
+    if (self_bind) {
+        class_table->semant_error(filename, this)
+            << "'self' cannot be bound in a 'let' expression.\n";
+    }
+
     // T_0'
     init->typecheck(class_table, env, current_class);
-    
-    // T_1 <= T_0'
+
+    // Check that the declared type exists; fall back to Object so we can still
+    // typecheck the body.
+    Symbol bind_type = type_decl;
+    InheritanceNode *node = class_table->lookup_in_context(type_decl, current_class);
+    bool decl_undefined = (node == NULL);
+    if (decl_undefined) {
+        class_table->semant_error(filename, this)
+            << "Class " << type_decl << " of let-bound identifier " << identifier << " is undefined.\n";
+        bind_type = Object;
+    }
+
+    // T_1 <= T_0'. If declared type is fake, bind_type is Object so this still works
     if (init->get_type() != No_type) {
-        if (!class_table->is_subclass_given_context(init->get_type(), type_decl, current_class)) {
-            class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-                << "Inferred type " << init->get_type() << " of initialization of " << identifier << " does not conform to declared type "
-                << class_table->normalize_maybe_self_type(type_decl, current_class) << ".\n";
+        if (!class_table->is_subclass_given_context(init->get_type(), bind_type, current_class)) {
+            class_table->semant_error(filename, this)
+                << "Inferred type " << init->get_type() << " of initialization of " << identifier << " does not conform to identifier's declared type "
+                << bind_type << ".\n";
         }
     }
 
     // Now enter new scope and check body
     env->enterscope();
 
-    TypeInfo *info = new TypeInfo();
-    info->type = type_decl;
-    info->object = NULL;
-    env->addid(identifier, info);
+    if (!self_bind) {
+        TypeInfo *info = new TypeInfo();
+        info->type = bind_type;
+        info->object = NULL;
+        env->addid(identifier, info);
+    }
 
     body->typecheck(class_table, env, current_class);
-    type = body->get_type();
+
+    // If the declared type was undefined, treat this let as a failed expression
+    type = decl_undefined ? No_type : body->get_type();
 
     env->exitscope();
 

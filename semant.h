@@ -81,6 +81,12 @@ public:
   bool is_subclass_given_context(Symbol a, Symbol b, Symbol C);
   Symbol class_join(Symbol a, Symbol b);
   Symbol class_join_in_context(Symbol a, Symbol b, Symbol C);
+
+  /**
+   First checks that both types are "real" (not No_type, if they are, skips to avoid cascadingerrors)
+   if they are, checks if at least one is not Int.
+   */
+  bool is_non_int_args(Symbol t1, Symbol t2);
 };
 
 

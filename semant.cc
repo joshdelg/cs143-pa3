@@ -192,10 +192,13 @@ void ClassTable::check_main_class_and_method() {
     if (main_node == NULL) {
         semant_error() << "Class Main is not defined.\n";
     } else {
-        Feature main_method = lookup_method(main_meth, Main, Main);
-        if (main_method == NULL) {
+        // Section 9: main must be DEFINED in Main, not merely inherited.
+        auto iter = main_node->methods.find(main_meth);
+        bool directly_defined = (iter != main_node->methods.end()) &&
+                                (iter->second->owner_class == main_node->class_node);
+        if (!directly_defined) {
             semant_error(main_node->class_node) << "No 'main' method in class Main.\n";
-        } else if (main_method->get_formals()->len() != 0) {
+        } else if (iter->second->feature->get_formals()->len() != 0) {
             semant_error(main_node->class_node) << "'main' method in class Main should have no arguments.\n";
         }
     }
@@ -1144,7 +1147,7 @@ void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
     Symbol pred_type = pred->get_type();
     if (pred_type != No_type && pred_type != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Loop predicate does not have type Bool.\n";
+            << "Loop condition does not have type Bool.\n";
     }
 
     body->typecheck(class_table, env, current_class);
@@ -1357,10 +1360,18 @@ void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
     //  ----------------------------------
     //   O, M, C |- Id <- e_1 : T'
 
+    if (name == self) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Cannot assign to 'self'.\n";
+        expr->typecheck(class_table, env, current_class);
+        type = expr->get_type();
+        return;
+    }
+
     TypeInfo *info = env->lookup(name);
     if (info == NULL) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Assignment to undeclared identifier " << name << ".\n";
+            << "Assignment to undeclared variable " << name << ".\n";
         expr->typecheck(class_table, env, current_class);
         type = Object;
         return;
@@ -1391,7 +1402,7 @@ void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
     Symbol pred_type = pred->get_type();
     if (pred_type != No_type && pred_type != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Predicate of conditional does not have type Bool.\n";
+            << "Predicate of 'if' does not have type Bool.\n";
     }
 
     then_exp->typecheck(class_table, env, current_class);

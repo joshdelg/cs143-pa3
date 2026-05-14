@@ -925,7 +925,33 @@ void divide_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 }
 
 void branch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    //  [Case]
+    //
+    //   O, M, C |- e_0 : T_0
+    //   O[T_1 / x_1], M, C |- e_1 : T_1'
+    //        ...
+    //   O[T_n / x_n], M, C |- e_n : T_n'
+    //  -------------------------------------------------------
+    //   O, M, C |- case e_0 of
+    //                 x_1 : T_1 => e_1;
+    //                 ...
+    //                 x_n : T_n => e_n;
+    //              esac : |_|_{1 <= i <= n} T_i'
+
+    // The body of a case statement is type checked in an environment extended 
+    // with the branch's variable bound to the branch's declared type.
+    env->enterscope();
+
+    // Practically a new attribute from the body's perspective
+    TypeInfo *expr_info = new TypeInfo();
+    expr_info->type = type_decl;
+    expr_info->object = NULL;
+    env->addid(name, expr_info);
+
+    // body
+    expr->typecheck(class_table, env, current_class);
+
+    env->exitscope();
 }
 
 void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
@@ -1068,7 +1094,29 @@ void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 }
 
 void eq_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    //  [Equal]
+    //
+    //   O, M, C |- e_1 : T_1
+    //   O, M, C |- e_2 : T_2
+    //   T_1 in {Int, String, Bool} OR T_2 in {Int, String, Bool}
+    //       ==>  T_1 = T_2
+    //  -------------------------------------------------------
+    //   O, M, C |- e_1 = e_2 : Bool
+
+    e1->typecheck(class_table, env, current_class);
+    e2->typecheck(class_table, env, current_class);
+
+    Symbol T_1 = e1->get_type();
+    Symbol T_2 = e2->get_type();
+
+    if ((T_1 == Int || T_1 == Str || T_1 == Bool) || (T_2 == Int || T_2 == Str || T_2 == Bool)) {
+        if (T_1 != T_2) {
+            class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+                << "Illegal comparison with a basic type.\n";
+        }
+    }
+
+    type = Bool;
 }
 
 void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

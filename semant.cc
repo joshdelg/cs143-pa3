@@ -1200,7 +1200,25 @@ void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 }
 
 void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    //  [If]
+    //
+    //   O, M, C |- e_1 : Bool
+    //   O, M, C |- e_2 : T_2
+    //   O, M, C |- e_3 : T_3
+    //  -------------------------------------------------------
+    //   O, M, C |- if e_1 then e_2 else e_3 fi : T_2 |_| T_3
+
+    pred->typecheck(class_table, env, current_class);
+
+    if (pred->get_type() != Bool) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Predicate of conditional does not have type Bool.\n";
+    }
+
+    then_exp->typecheck(class_table, env, current_class);
+    else_exp->typecheck(class_table, env, current_class);
+
+    type = class_table->class_join_in_context(then_exp->get_type(), else_exp->get_type(), current_class);
 }
 
 void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

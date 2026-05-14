@@ -1012,7 +1012,7 @@ void neg_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
 
     if (e1->get_type() != Int) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Argument of Negation has type " << e1->get_type() << " instead of Int.\n";
+            << "Argument of '~' has type " << e1->get_type() << " instead of Int.\n";
     }
 
     type = Int;
@@ -1076,7 +1076,7 @@ void comp_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     if (e1->get_type() != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Argument of Not has type " << e1->get_type() << " instead of Bool.\n";
+            << "Argument of 'not' has type " << e1->get_type() << " instead of Bool.\n";
     }
     
     type = Bool;

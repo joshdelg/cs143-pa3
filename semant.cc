@@ -853,7 +853,7 @@ void isvoid_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 
 void plus_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
     //   [Arith]
-    
+    //
     //   O, M, C |- e_1 : Int
     //   O, M, C |- e_2 : Int
     //   op in {*, +, -, /}
@@ -873,7 +873,7 @@ void plus_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
 void sub_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
     //   [Arith]
-    
+    //
     //   O, M, C |- e_1 : Int
     //   O, M, C |- e_2 : Int
     //   op in {*, +, -, /}
@@ -893,7 +893,7 @@ void sub_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
 
 void mul_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
     //   [Arith]
-    
+    //
     //   O, M, C |- e_1 : Int
     //   O, M, C |- e_2 : Int
     //   op in {*, +, -, /}
@@ -913,7 +913,7 @@ void mul_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
 
 void divide_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
     //   [Arith]
-    
+    //
     //   O, M, C |- e_1 : Int
     //   O, M, C |- e_2 : Int
     //   op in {*, +, -, /}
@@ -962,6 +962,13 @@ void branch_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
 }
 
 void new__class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //   [New]
+    //
+    //   T' = {  SELF_TYPE_C   if T = SELF_TYPE
+    //           T             otherwise
+    //  ----------------------------------
+    //   O, M, C |- new T : T'
+
     InheritanceNode *node = class_table->lookup_in_context(this->type_name, current_class);
 
     if (node == NULL) {
@@ -1143,6 +1150,22 @@ void eq_class::typecheck(ClassTable *class_table, Environment *env, Symbol curre
 }
 
 void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [Dispatch]
+    //
+    //   O, M, C |- e_0 : T_0
+    //   O, M, C |- e_1 : T_1
+    //        ...
+    //   O, M, C |- e_n : T_n
+    //   T_0' = {  C     if T_0 = SELF_TYPE_C
+    //             T_0   otherwise
+    //   M(T_0', f) = (T_1', ..., T_n', T_{n+1}')
+    //   T_i <= T_i'    for 1 <= i <= n
+    //   T_{n+1} = {  T_0           if T_{n+1}' = SELF_TYPE
+    //                T_{n+1}'      otherwise
+    //  -------------------------------------------------------
+    //   O, M, C |- e_0.f(e_1, ..., e_n) : T_{n+1}
+
+
     // First, everything needs a type.
     // Typecheck the reciever (e0)
     expr->typecheck(class_table, env, current_class);
@@ -1192,6 +1215,20 @@ void dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol
 }
 
 void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [StaticDispatch]
+    //
+    //   O, M, C |- e_0 : T_0
+    //   O, M, C |- e_1 : T_1
+    //        ...
+    //   O, M, C |- e_n : T_n
+    //   T_0 <= T
+    //   M(T, f) = (T_1', ..., T_n', T_{n+1}')
+    //   T_i <= T_i'    for 1 <= i <= n
+    //   T_{n+1} = {  T_0           if T_{n+1}' = SELF_TYPE
+    //                T_{n+1}'      otherwise
+    //  -------------------------------------------------------
+    //   O, M, C |- e_0@T.f(e_1, ..., e_n) : T_{n+1}
+
     return;
 }
 
@@ -1247,6 +1284,25 @@ void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 }
 
 void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    // [Let-Init]
+    //
+    //   T_0' = {  SELF_TYPE_C   if T_0 = SELF_TYPE
+    //             T_0           otherwise
+    //   O, M, C |- e_1 : T_1
+    //   T_1 <= T_0'
+    //   O[T_0' / x], M, C |- e_2 : T_2
+    //  -------------------------------------------------------
+    //   O, M, C |- let x : T_0 <- e_1 in e_2 : T_2
+
+    
+    //   [Let-No-Init]
+    //
+    //   T_0' = {  SELF_TYPE_C   if T_0 = SELF_TYPE
+    //             T_0           otherwise
+    //   O[T_0' / x], M, C |- e_1 : T_1
+    //  -------------------------------------------------------
+    //   O, M, C |- let x : T_0 in e_1 : T_1
+    
     return;
 }
 
@@ -1279,6 +1335,4 @@ void typcase_class::typecheck(ClassTable *class_table, Environment *env, Symbol 
     }
 
     type = result_type;
-
-    return;
 }

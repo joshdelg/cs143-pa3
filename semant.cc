@@ -755,6 +755,14 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
             class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " is multiply defined.\n";
             continue;
         }
+
+        // Validate cur_formal_type
+        InheritanceNode *cur_formal_node = class_table->lookup_in_context(cur_formal_type, current_class);
+        if (cur_formal_node == NULL) {
+            class_table->semant_error(filename, cur_formal) << "Class " << cur_formal_type << " of formal parameter " << cur_formal_name << " is undefined.\n";
+            this->return_type = Object;
+        }
+
         seen_formals.insert(cur_formal_name);
 
         TypeInfo *info = new TypeInfo();
@@ -800,6 +808,14 @@ void attr_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     // Get the type T_1 for e_1
     init->typecheck(class_table, env, current_class);
+
+    // Validate type_decl
+    InheritanceNode *type_node = class_table->lookup_in_context(type_decl, current_class);
+    if (type_node == NULL) {
+        class_table->semant_error(filename, this) << "Class " << type_decl << " of attribute " << name << " is undefined.\n";
+        this->type_decl = Object;
+    }
+
 
     // Ensure T_1 <= T_0
     if (init->get_type() != No_type) {
@@ -1496,14 +1512,48 @@ void typcase_class::typecheck(ClassTable *class_table, Environment *env, Symbol 
     expr->typecheck(class_table, env, current_class);
     Symbol result_type = No_type;
 
-    for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
-        Case c_i = cases->nth(i);
-        c_i->typecheck(class_table, env, current_class);
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename();
 
+    // Track seen branch typs for duplicate detection
+    std::unordered_set<Symbol> seen_branch_types;
+
+    for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
+        Case cur_case = cases->nth(i);
+        Symbol cur_branch_type = cur_case->get_type_decl();
+        Symbol cur_branch_name = cur_case->get_name();
+
+        if (cur_branch_type == SELF_TYPE) {
+            class_table->semant_error(filename, cur_case)
+                << "Identifier " << cur_branch_name << " declared with type SELF_TYPE in case branch.\n";
+            continue;
+        }
+        if (cur_branch_name == self) {
+            class_table->semant_error(filename, cur_case)
+                << "'self' bound in 'case'.\n";
+            continue;
+        }
+        if (seen_branch_types.count(cur_branch_type)) {
+            class_table->semant_error(filename, cur_case)
+                << "Duplicate branch " << cur_branch_type << " in case statement.\n";
+            continue;
+        }
+        seen_branch_types.insert(cur_branch_type);
+
+        // Validate cur_branch_type
+        InheritanceNode *node = class_table->lookup_in_context(cur_branch_type, current_class);
+        if (node == NULL) {
+            class_table->semant_error(filename, cur_case)
+                << "Class " << cur_branch_type << " of case branch is undefined.\n";
+            continue;
+        }
+
+        // Branch is valid, now we'll check its body and join the result type.
+        cur_case->typecheck(class_table, env, current_class);
+        Symbol branch_type = cur_case->get_type();
         if (result_type == No_type) {
-            result_type = c_i->get_type();
+            result_type = branch_type;
         } else {
-            result_type = class_table->class_join_in_context(result_type, c_i->get_type(), current_class);
+            result_type = class_table->class_join_in_context(result_type, branch_type, current_class);
         }
     }
 

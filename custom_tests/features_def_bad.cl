@@ -36,4 +36,17 @@ class Main {
     -- Redef with diff type diff init
     myVar2: Bool <- true;
     myVar2: String <- "Hello, world!";
+
+    -- 'self' as a formal parameter (illegal per spec section 7.2)
+    badFormalSelf(self: Int): Int { 0 };
+    badFormalSelfWithOther(x: Int, self: Bool): Int { 0 };
+};
+
+-- 'self' as an attribute name (illegal per spec section 7.2).
+class BadAttrSelfNoInit {
+    self: Int;
+};
+
+class BadAttrSelfWithInit {
+    self: Int <- 0;
 };

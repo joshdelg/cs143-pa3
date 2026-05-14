@@ -121,11 +121,14 @@ struct FeatureOverrideInfo {
   Symbol get_name() { return name; }
 
 #define Case_EXTRAS					\
-  virtual void dump_with_types(ostream& ,int) = 0;
+  virtual void dump_with_types(ostream& ,int) = 0; \
+  virtual void typecheck(ClassTable *class_table, Environment *env, Symbol current_class) = 0; \
+  virtual Symbol get_type() = 0;
 
 #define branch_EXTRAS					\
   void dump_with_types(ostream&, int); \
-  void typecheck(ClassTable *class_table, Environment *env, Symbol current_class);
+  void typecheck(ClassTable *class_table, Environment *env, Symbol current_class); \
+  Symbol get_type() { return expr->get_type(); }
 
 #define Expression_EXTRAS					\
   Symbol type;							\

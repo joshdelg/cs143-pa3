@@ -545,6 +545,13 @@ Symbol ClassTable::class_join(Symbol a, Symbol b)
     return NULL;
 }
 
+Symbol ClassTable::class_join_in_context(Symbol a, Symbol b, Symbol C) {
+    Symbol actual_a = normalize_maybe_self_type(a, C);
+    Symbol actual_b = normalize_maybe_self_type(b, C);
+
+    return class_join(actual_a, actual_b);
+}
+
 
 /*** AST Method Implementations */
 

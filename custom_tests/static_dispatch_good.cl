@@ -13,7 +13,7 @@ class Main {
     };
 
     main4(): Object {
-        (newC)@A.foo()
+        (new C)@A.foo()
     };
     
     main5(): Object {
@@ -33,6 +33,11 @@ class A {
     fooSelf(): SELF_TYPE {
         self
     };
+
+    -- Static dispatch to SELF_TYPE not allowed
+    (* doesSelfTypeWorkHere(): Object {
+        (new B)@SELF_TYPE.foo()
+    }; *)
 };
 
 class B inherits A {
@@ -67,7 +72,7 @@ class C inherits B {
         self@B.foo()
     };
 
-    foo3(): String {
+    foo36(): String {
         self@A.foo()
     };
 

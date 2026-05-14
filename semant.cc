@@ -1229,7 +1229,77 @@ void static_dispatch_class::typecheck(ClassTable *class_table, Environment *env,
     //  -------------------------------------------------------
     //   O, M, C |- e_0@T.f(e_1, ..., e_n) : T_{n+1}
 
-    return;
+    // Typecheck receiver
+    expr->typecheck(class_table, env, current_class);
+
+    // Typecheck actuals
+    for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
+        actual->nth(i)->typecheck(class_table, env, current_class);
+    }
+
+    // Forbid SELF_TYPE
+    if (type_name == SELF_TYPE) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Static dispatch to SELF_TYPE.\n";
+        this->set_type(No_type);
+        return;
+    }
+
+    // Make sure receiver class exists
+    InheritanceNode *node = class_table->lookup_in_context(type_name, current_class);
+    if (node == NULL) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Static dispatch to undefined class " << type_name << ".\n";
+        this->set_type(No_type);
+        return;
+    }
+
+    // Make sure that receiver conforms to static type
+    if (!class_table->is_subclass_given_context(expr->get_type(), type_name, current_class)) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Expression type " << expr->get_type() << " does not conform to declared static dispatch type " << type_name << ".\n";
+        this->set_type(No_type);
+        return;
+    }
+
+    // Lookup method on static type
+    Feature method = class_table->lookup_method(name, type_name, current_class);
+
+    // Make sure method exists on static type
+    if (method == NULL) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Static dispatch to undefined method " << name << ".\n";
+        this->set_type(No_type);
+
+        return;
+    }
+
+    // Make sure number of actuals matches number of formals
+    if (actual->len() != method->get_formals()->len()) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Method " << name << " invoked with wrong number of arguments.\n";
+        this->set_type(No_type);
+        return;
+    }
+
+    // Make sure actuals conform to formals
+    for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
+        Symbol actual_arg_type = actual->nth(i)->get_type();
+        Symbol formal_arg_type = method->get_formals()->nth(i)->get_type();
+        Symbol formal_arg_name = method->get_formals()->nth(i)->get_name();
+
+        if (!class_table->is_subclass_given_context(actual_arg_type, formal_arg_type, current_class)) {
+            class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+                << "In call of method " << name << ", type " << actual_arg_type << " of parameter " << formal_arg_name << " does not conform to declared type "
+                << formal_arg_type << ".\n";
+
+            this->set_type(No_type);
+        }
+    }
+
+    // Set the static dispatch's type to the function's normalized return type:
+    // i.e. if f returns SELF_TYPE, the type of the dispatch is the *unnormalized* type of the receiver
+    this->set_type(class_table->normalize_maybe_self_type(method->get_type(), expr->get_type()));
 }
 
 void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

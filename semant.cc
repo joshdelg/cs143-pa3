@@ -1226,5 +1226,34 @@ void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
 }
 
 void typcase_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
+    //  [Case]
+    //
+    //   O, M, C |- e_0 : T_0
+    //   O[T_1 / x_1], M, C |- e_1 : T_1'
+    //        ...
+    //   O[T_n / x_n], M, C |- e_n : T_n'
+    //  -------------------------------------------------------
+    //   O, M, C |- case e_0 of
+    //                 x_1 : T_1 => e_1;
+    //                 ...
+    //                 x_n : T_n => e_n;
+    //              esac : |_|_{1 <= i <= n} T_i'
+
+    expr->typecheck(class_table, env, current_class);
+    Symbol result_type = No_type;
+
+    for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
+        Case c_i = cases->nth(i);
+        c_i->typecheck(class_table, env, current_class);
+
+        if (result_type == No_type) {
+            result_type = c_i->get_type();
+        } else {
+            result_type = class_table->class_join_in_context(result_type, c_i->get_type(), current_class);
+        }
+    }
+
+    type = result_type;
+
     return;
 }

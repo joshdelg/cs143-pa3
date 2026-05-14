@@ -1364,7 +1364,15 @@ void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
             << "Cannot assign to 'self'.\n";
         expr->typecheck(class_table, env, current_class);
-        type = expr->get_type();
+        TypeInfo *info = env->lookup(name);
+        Symbol expr_type = expr->get_type();
+
+        if (!class_table->is_subclass_given_context(expr_type, info->type, current_class)) {
+            class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+                << "Type " << expr_type << " of assigned expression does not conform to declared type " << info->type << " of identifier " << name << ".\n";
+        }
+
+        type = expr_type;
         return;
     }
 

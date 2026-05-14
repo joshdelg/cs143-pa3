@@ -1294,7 +1294,31 @@ void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
     //  -------------------------------------------------------
     //   O, M, C |- let x : T_0 <- e_1 in e_2 : T_2
 
+    // T_0'
+    init->typecheck(class_table, env, current_class);
     
+    // T_1 <= T_0'
+    if (init->get_type() != No_type) {
+        if (!class_table->is_subclass_given_context(init->get_type(), type_decl, current_class)) {
+            class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+                << "Inferred type " << init->get_type() << " of initialization of " << identifier << " does not conform to declared type "
+                << class_table->normalize_maybe_self_type(type_decl, current_class) << ".\n";
+        }
+    }
+
+    // Now enter new scope and check body
+    env->enterscope();
+
+    TypeInfo *info = new TypeInfo();
+    info->type = type_decl;
+    info->object = NULL;
+    env->addid(identifier, info);
+
+    body->typecheck(class_table, env, current_class);
+    type = body->get_type();
+
+    env->exitscope();
+
     //   [Let-No-Init]
     //
     //   T_0' = {  SELF_TYPE_C   if T_0 = SELF_TYPE
@@ -1302,8 +1326,8 @@ void let_class::typecheck(ClassTable *class_table, Environment *env, Symbol curr
     //   O[T_0' / x], M, C |- e_1 : T_1
     //  -------------------------------------------------------
     //   O, M, C |- let x : T_0 in e_1 : T_1
-    
-    return;
+
+    // similar pattern to attr_class, the init->get_type != No_type check handles both cases.
 }
 
 void typcase_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

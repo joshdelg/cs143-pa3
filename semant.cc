@@ -1047,7 +1047,24 @@ void block_class::typecheck(ClassTable *class_table, Environment *env, Symbol cu
 }
 
 void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {
-    return;
+    //  [Loop]
+    //
+    //   O, M, C |- e_1 : Bool
+    //   O, M, C |- e_2 : T_2
+    //  -------------------------------------------------------
+    //   O, M, C |- while e_1 loop e_2 pool : Object
+
+    pred->typecheck(class_table, env, current_class);
+
+    if (pred->get_type() != Bool) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Loop predicate does not have type Bool.\n";
+    }
+
+    body->typecheck(class_table, env, current_class);
+
+    // While loops always evaluate to void, which we label as type Object.
+    type = Object;
 }
 
 void eq_class::typecheck(ClassTable *class_table, Environment *env, Symbol current_class) {

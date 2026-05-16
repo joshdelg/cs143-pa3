@@ -123,12 +123,16 @@ struct FeatureOverrideInfo {
 #define Case_EXTRAS					\
   virtual void dump_with_types(ostream& ,int) = 0; \
   virtual void typecheck(ClassTable *class_table, Environment *env, Symbol current_class) = 0; \
-  virtual Symbol get_type() = 0;
+  virtual Symbol get_type() = 0; \
+  virtual Symbol get_name() = 0; \
+  virtual Symbol get_type_decl() = 0;
 
 #define branch_EXTRAS					\
   void dump_with_types(ostream&, int); \
   void typecheck(ClassTable *class_table, Environment *env, Symbol current_class); \
-  Symbol get_type() { return expr->get_type(); }
+  Symbol get_type() { return expr->get_type(); } \
+  Symbol get_name() { return name; } \
+  Symbol get_type_decl() { return type_decl; }
 
 #define Expression_EXTRAS					\
   Symbol type;							\

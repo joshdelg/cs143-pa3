@@ -352,6 +352,23 @@ void ClassTable::collect_methods_and_attributes(Classes classes) {
 
     std::unordered_set<Symbol> initialized;
 
+    // Include built-in methods in this table as well.
+    for (Symbol builtin : {Object, IO, Int, Bool, Str}) {
+        InheritanceNodeP node = lookup(builtin);
+        if (node == NULL || initialized.count(builtin)) continue;
+        if (node->parent != NULL) {
+            node->methods    = node->parent->methods;
+            node->attributes = node->parent->attributes;
+        }
+        Features features = node->class_node->get_features();
+        for (int i = features->first(); features->more(i); i = features->next(i)) {
+            std::string err;
+            features->nth(i)->register_method_or_attribute(
+                node->methods, node->attributes, err, node->class_node);
+        }
+        initialized.insert(builtin);
+    }
+
     // Iterate in program class order, not symbol table order to match error messages
     for (int ci = classes->first(); classes->more(ci); ci = classes->next(ci)) {
         Class_ prog_class = classes->nth(ci);

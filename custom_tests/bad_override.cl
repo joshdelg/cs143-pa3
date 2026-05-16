@@ -29,3 +29,10 @@ class C inherits A {
 
     bar: Bool <- false;
 };
+
+-- redef with same name, args, and return type but different arg type
+class D inherits A {
+    foo(extraParam: Bool) : Bool {
+        true
+    };
+};

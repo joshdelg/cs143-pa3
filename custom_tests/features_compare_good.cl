@@ -71,6 +71,24 @@ class Main {
         ~1 <= ~0
     };
 
+    -- non basic types can be compared freely
+    main14(): Bool {
+        self = self
+    };
+
+    main15(): Bool {
+        self = new Main
+    };
+
+    main16(): Bool {
+        self = new SELF_TYPE
+    };
+
+    -- void values may be tested for equality
+    main17(): Bool {
+        let a: A, b: A in a = b
+    };
+
     myBool: Bool <- 1 < 2;
     myBool2: Bool <- 1 <= 2;
     myBool3: Bool <- 1 = 2;

@@ -55,6 +55,19 @@ class Main {
 
     x: Int <- 5;
     sumAttr: Int <- let a: Int <- 1, b: Int <- a + 1 in a + b;
+
+    -- if inside let init
+    main13(): Int {
+        let x: Int <- (if true then 1 else 2 fi) in x + 1
+    };
+
+    -- case inside let init
+    main14(): Int {
+        let x: Int <- (case 0 of
+                           n: Int    => n + 1;
+                           o: Object => 0;
+                       esac) in x
+    };
 };
 
 class A {};

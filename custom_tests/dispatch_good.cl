@@ -82,3 +82,18 @@ class C inherits B {
         (new Main).foo()
     };
 };
+
+-- Chained dispatch through SELF_TYPE returns
+class E {
+    self_e(): SELF_TYPE { self };
+};
+
+class D inherits E {
+    self_d(): SELF_TYPE { self };
+};
+
+class Chainer {
+    chain(): D {
+        (new D).self_d().self_e()
+    };
+};

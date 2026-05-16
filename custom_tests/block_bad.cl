@@ -1,38 +1,58 @@
 class Main {
     main(): Object { self };
 
-    -- Arithmetic type error inside a block (String is not Int)
+    -- type error in block
     bad1(): Int {
         { 1 + "hello"; 0; }
     };
 
-    -- Block's last expression type (Int) does not conform to declared return type (String)
+    -- wrong return type
     bad2(): String {
         { 1; 2; 3; }
     };
 
-    -- Undeclared identifier referenced inside a block
+    -- undecl
     bad3(): Object {
         { undeclared; 0; }
     };
 
-    -- Comparison type error inside a block (Bool is not Int for <=)
+    -- type error comparioson
     bad4(): Object {
         { 1 <= true; 0; }
     };
 
-    -- not applied to Int (not Bool) inside a block
+    -- type error not
     bad5(): Bool {
         { not 42; }
     };
 
-    -- Block last expression is Int but method declares Bool
+    -- type error block type
     bad6(): Bool {
         { true; "middle"; 99; }
     };
 
-    -- Block containing an assignment to an undeclared variable
+    -- assignto undecl
     bad7(): Object {
         { noSuchVar <- 5; 0; }
+    };
+
+    -- can't assign to self in block
+    bad8(): Object {
+        { self <- new Main; 0; }
+    };
+
+    -- SELF_TYPE block type isn't int
+    bad9(): Int {
+        { 1; self; }
+    };
+
+    -- Main != SELF_TYPE
+    bad10(): SELF_TYPE {
+        { 1; new Main; }
+    };
+
+    -- can't bind self
+    bad11(): Object {
+        { let self: Int <- 1 in self; 0; }
     };
 };

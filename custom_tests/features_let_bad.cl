@@ -74,6 +74,11 @@ class Main {
     };
 
     badAttr2: Int <- let q: Bogus <- 1 in 0;
+
+    -- x not visible in y init
+    bad15(): Int {
+        let y: Int <- (x + 1), x: Int <- 1 in y
+    };
 };
 
 class A {

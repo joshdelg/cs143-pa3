@@ -5,27 +5,23 @@ class Main {
 
     main(): Object { self };
 
-    -- isvoid on an Int constant; always false at runtime but statically valid -> Bool
     test1(): Bool {
         isvoid 5
     };
 
-    -- isvoid on a String constant -> Bool
     test2(): Bool {
         isvoid "hello"
     };
 
-    -- isvoid on a fresh object (always false) -> Bool
     test3(): Bool {
         isvoid new A
     };
 
-    -- isvoid on self -> Bool
     test4(): Bool {
         isvoid self
     };
 
-    -- isvoid result drives an if predicate (Bool is correct for if)
+    -- isvoid returns bool
     test5(): Int {
         if isvoid new A then 0 else 1 fi
     };
@@ -40,17 +36,16 @@ class Main {
         isvoid obj
     };
 
-    -- isvoid result as the while predicate -> loop returns Object
+    -- isvoid bool as while predicate
     test8(): Object {
         while isvoid obj loop 0 pool
     };
 
-    -- isvoid on a let-bound variable -> Bool
     test9(): Bool {
         let x: A <- new A in isvoid x
     };
 
-    -- Nested isvoid (isvoid Bool -> Bool)
+    -- nested isvoid
     test10(): Bool {
         isvoid (isvoid 0)
     };

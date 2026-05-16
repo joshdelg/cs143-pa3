@@ -106,7 +106,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         class_indices.push_back(i);
 
         // Check for redefinition of basic classes (and SELF_TYPE — not a legal class name)
-        if (class_name == Int || class_name == Bool || class_name == Str || class_name == SELF_TYPE) {
+        if (class_name == Int || class_name == Bool || class_name == Str || class_name == IO ||
+            class_name == Object || class_name == SELF_TYPE) {
             semant_error(c) << "Redefinition of basic class " << class_name << ".\n";
             class_registered.push_back(false);
             continue;
@@ -573,7 +574,11 @@ Symbol ClassTable::class_join(Symbol a, Symbol b)
     return NULL;
 }
 
+// SELF_TYPE_C collapses to C when joined with a concrete class, otherwise it stays SELF_TYPE
+//   SELF_TYPE_C |_| SELF_TYPE_C = SELF_TYPE_C
+//   SELF_TYPE_D |_| A           = D |_| A
 Symbol ClassTable::class_join_in_context(Symbol a, Symbol b, Symbol C) {
+    if (a == SELF_TYPE && b == SELF_TYPE) return SELF_TYPE;
     Symbol actual_a = normalize_maybe_self_type(a, C);
     Symbol actual_b = normalize_maybe_self_type(b, C);
 

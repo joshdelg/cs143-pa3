@@ -7,32 +7,32 @@ class Main {
 
     main(): Object { self };
 
-    -- Assignment to an undeclared identifier
+    -- undeclared
     bad1(): Object {
         undeclaredVar <- 5
     };
 
-    -- rhs is String; declared type of x is Int; String does not conform to Int
+    -- wrong type
     bad2(): Object {
         x <- "hello"
     };
 
-    -- rhs is Bool; does not conform to Int
+    -- wrong type
     bad3(): Object {
         x <- true
     };
 
-    -- A is not a subtype of B; cannot assign new A to a B variable
+    -- wrong type (inheritance)
     bad4(): Object {
         b <- new A
     };
 
-    -- Assignment to self is forbidden (section 7.2)
+    -- self
     bad5(): Object {
         self <- new Main
     };
 
-    -- rhs type error propagates: (1 + true) has type error; assign result to x
+    -- type error propogation
     bad6(): Object {
         x <- 1 + true
     };

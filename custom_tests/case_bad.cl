@@ -6,7 +6,7 @@ class Main {
 
     main(): Object { self };
 
-    -- Duplicate branch types: both branches declare type A (types must be distinct)
+    -- declare same type
     bad1(): Object {
         case a of
             y: A => 0;
@@ -14,14 +14,14 @@ class Main {
         esac
     };
 
-    -- SELF_TYPE as a branch type (section 4.1 forbids this)
+    -- Can't use SELF_TYPE for case
     bad2(): Object {
         case a of
             y: SELF_TYPE => y;
         esac
     };
 
-    -- self as the branch-binding variable (section 7.2 forbids binding self)
+    -- can't redefine self
     bad3(): Object {
         case a of
             self: A => self;
@@ -35,7 +35,7 @@ class Main {
         esac
     };
 
-    -- Body of a branch has a type error (A does not support +)
+    -- Body has type error
     bad5(): Object {
         case a of
             y: A => y + 1;
@@ -48,6 +48,20 @@ class Main {
             p: B => 0;
             q: A => 1;
             r: B => 2;
+        esac
+    };
+
+    -- expr failed to typecheck
+    bad7(): Object {
+        case undeclaredVar of
+            x: Object => 0;
+        esac
+    };
+
+    -- same, but with dispatch
+    bad8(): Object {
+        case undeclaredVar.someMethod() of
+            x: A => 0;
         esac
     };
 };

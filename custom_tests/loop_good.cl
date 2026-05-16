@@ -1,17 +1,16 @@
 class Main {
     main(): Object { self };
 
-    -- Simplest loop: false predicate, result is Object
     test1(): Object {
         while false loop 0 pool
     };
 
-    -- Body may have any static type; result is still Object
+    -- body may have any static type; result is still Object
     test2(): Object {
         while false loop "any type is fine" pool
     };
 
-    -- Counting loop; body assigns to a let variable
+    -- assignment in body
     test3(): Object {
         let i: Int <- 0 in
             while i < 5 loop
@@ -19,20 +18,20 @@ class Main {
             pool
     };
 
-    -- Loop result assigned to an Object variable (Object <= Object)
+    -- assign loop result
     test4(): Object {
         let result: Object <- (while false loop 0 pool) in
             result
     };
 
-    -- Nested loops; outer result is Object
+    -- nested
     test5(): Object {
         while false loop
             while false loop 0 pool
         pool
     };
 
-    -- Predicate from a comparison; body uses a block (all exprs need semicolons)
+    -- block body
     test6(): Object {
         let x: Int <- 10 in
             while 0 < x loop {
@@ -42,14 +41,28 @@ class Main {
             pool
     };
 
-    -- Predicate from not (Bool)
     test7(): Object {
         while not true loop 0 pool
     };
 
-    -- Predicate from isvoid (Bool)
     test8(): Object {
         let obj: Main <- new Main in
             while isvoid obj loop 0 pool
+    };
+
+    -- test shadowing
+    test9(): Int {
+        let x: Int <- 5 in {
+            while false loop
+                let x: String <- "inner" in x
+            pool;
+            x + 1;
+        }
+    };
+
+    -- predicate is a method call that returns Bool
+    isReady(): Bool { false };
+    test10(): Object {
+        while isReady() loop 0 pool
     };
 };

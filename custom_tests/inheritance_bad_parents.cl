@@ -16,4 +16,6 @@ class Main {
 
 -- Redefinition of basic classes
 class Int { };
+class IO { };
+class Object { };
 class SELF_TYPE { };

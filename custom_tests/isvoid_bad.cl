@@ -1,32 +1,32 @@
 class Main {
     main(): Object { self };
 
-    -- isvoid returns Bool; Bool cannot be added to Int with +
+    -- bool cannot add to int
     bad1(): Int {
         (isvoid self) + 1
     };
 
-    -- Bool + Bool is still a type error (+ requires Int operands)
+    -- bools cannot add
     bad2(): Int {
         (isvoid self) + (isvoid self)
     };
 
-    -- The subexpression of isvoid has a type error (Bool is not Int)
+    -- subexpr type error
     bad3(): Bool {
         isvoid (1 + true)
     };
 
-    -- Integer complement (~) requires Int; isvoid returns Bool
+    -- ~ needs int
     bad4(): Int {
         ~(isvoid self)
     };
 
-    -- Arithmetic comparison (<) requires Int; Bool < Bool is illegal
+    -- cannot < bools
     bad5(): Bool {
         (isvoid self) < (isvoid self)
     };
 
-    -- isvoid result used where String is expected (method return mismatch)
+    -- bool != String
     bad6(): String {
         isvoid self
     };

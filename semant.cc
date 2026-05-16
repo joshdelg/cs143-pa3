@@ -91,6 +91,7 @@ static void initialize_constants(void) {
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     std::vector<bool> class_registered;
+    std::vector<int>  class_indices;   // list-indices in forward source order
 
     // Only use the global scope for the ClassTable
     enterscope();
@@ -102,6 +103,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
         Class_ c = classes->nth(i);
         Symbol class_name = c->get_name();
+        class_indices.push_back(i);
 
         // Check for redefinition of basic classes (and SELF_TYPE — not a legal class name)
         if (class_name == Int || class_name == Bool || class_name == Str || class_name == SELF_TYPE) {
@@ -126,13 +128,12 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
         class_registered.push_back(true);
     }
 
-    /* Link our InheritanceNodes together. */
-    int reg_idx = 0;
-    for (int i = classes->first(); classes->more(i); i = classes->next(i), reg_idx++) {
-        if (!class_registered[reg_idx]) {
+    /* Link our InheritanceNodes together (turns out reference semant does it in reverse like this). */
+    for (int ri = (int)class_indices.size() - 1; ri >= 0; ri--) {
+        if (!class_registered[ri]) {
             continue;
         }
-        Class_ c = classes->nth(i);
+        Class_ c = classes->nth(class_indices[ri]);
         Symbol parent_name = c->get_parent();
 
         InheritanceNodeP child_node = lookup(c->get_name());
@@ -158,14 +159,14 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0), error_stream(cerr) {
     }
 
     /* Check for cycles: walk parent pointers; more steps than there are
-       classes (including built-ins) means we are stuck in a cycle. */
+       classes (including built-ins) means we are stuck in a cycle.
+       This part is also in reverse order to match the reference . */
     size_t total_classes = gettable().front().size();
-    reg_idx = 0;
-    for (int i = classes->first(); classes->more(i); i = classes->next(i), reg_idx++) {
-        if (!class_registered[reg_idx]) {
+    for (int ri = (int)class_indices.size() - 1; ri >= 0; ri--) {
+        if (!class_registered[ri]) {
             continue;
         }
-        Class_ c = classes->nth(i);
+        Class_ c = classes->nth(class_indices[ri]);
         InheritanceNodeP current_node = lookup(c->get_name());
 
         size_t moves = 0;
@@ -191,10 +192,13 @@ void ClassTable::check_main_class_and_method() {
     if (main_node == NULL) {
         semant_error() << "Class Main is not defined.\n";
     } else {
-        Feature main_method = lookup_method(main_meth, Main, Main);
-        if (main_method == NULL) {
+        // Section 9: main must be DEFINED in Main, not merely inherited.
+        auto iter = main_node->methods.find(main_meth);
+        bool directly_defined = (iter != main_node->methods.end()) &&
+                                (iter->second->owner_class == main_node->class_node);
+        if (!directly_defined) {
             semant_error(main_node->class_node) << "No 'main' method in class Main.\n";
-        } else if (main_method->get_formals()->len() != 0) {
+        } else if (iter->second->feature->get_formals()->len() != 0) {
             semant_error(main_node->class_node) << "'main' method in class Main should have no arguments.\n";
         }
     }
@@ -347,6 +351,23 @@ void ClassTable::collect_methods_and_attributes(Classes classes) {
     }
 
     std::unordered_set<Symbol> initialized;
+
+    // Include built-in methods in this table as well.
+    for (Symbol builtin : {Object, IO, Int, Bool, Str}) {
+        InheritanceNodeP node = lookup(builtin);
+        if (node == NULL || initialized.count(builtin)) continue;
+        if (node->parent != NULL) {
+            node->methods    = node->parent->methods;
+            node->attributes = node->parent->attributes;
+        }
+        Features features = node->class_node->get_features();
+        for (int i = features->first(); features->more(i); i = features->next(i)) {
+            std::string err;
+            features->nth(i)->register_method_or_attribute(
+                node->methods, node->attributes, err, node->class_node);
+        }
+        initialized.insert(builtin);
+    }
 
     // Iterate in program class order, not symbol table order to match error messages
     for (int ci = classes->first(); classes->more(ci); ci = classes->next(ci)) {
@@ -751,6 +772,14 @@ void method_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
             class_table->semant_error(filename, cur_formal) << "Formal parameter " << cur_formal_name << " is multiply defined.\n";
             continue;
         }
+
+        // Validate cur_formal_type
+        InheritanceNode *cur_formal_node = class_table->lookup_in_context(cur_formal_type, current_class);
+        if (cur_formal_node == NULL) {
+            class_table->semant_error(filename, cur_formal) << "Class " << cur_formal_type << " of formal parameter " << cur_formal_name << " is undefined.\n";
+            this->return_type = Object;
+        }
+
         seen_formals.insert(cur_formal_name);
 
         TypeInfo *info = new TypeInfo();
@@ -796,6 +825,14 @@ void attr_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
 
     // Get the type T_1 for e_1
     init->typecheck(class_table, env, current_class);
+
+    // Validate type_decl
+    InheritanceNode *type_node = class_table->lookup_in_context(type_decl, current_class);
+    if (type_node == NULL) {
+        class_table->semant_error(filename, this) << "Class " << type_decl << " of attribute " << name << " is undefined.\n";
+        this->type_decl = Object;
+    }
+
 
     // Ensure T_1 <= T_0
     if (init->get_type() != No_type) {
@@ -1143,7 +1180,7 @@ void loop_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
     Symbol pred_type = pred->get_type();
     if (pred_type != No_type && pred_type != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Loop predicate does not have type Bool.\n";
+            << "Loop condition does not have type Bool.\n";
     }
 
     body->typecheck(class_table, env, current_class);
@@ -1356,10 +1393,15 @@ void assign_class::typecheck(ClassTable *class_table, Environment *env, Symbol c
     //  ----------------------------------
     //   O, M, C |- Id <- e_1 : T'
 
+    if (name == self) {
+        class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
+            << "Cannot assign to 'self'.\n";
+    }
+
     TypeInfo *info = env->lookup(name);
     if (info == NULL) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Assignment to undeclared identifier " << name << ".\n";
+            << "Assignment to undeclared variable " << name << ".\n";
         expr->typecheck(class_table, env, current_class);
         type = Object;
         return;
@@ -1390,7 +1432,7 @@ void cond_class::typecheck(ClassTable *class_table, Environment *env, Symbol cur
     Symbol pred_type = pred->get_type();
     if (pred_type != No_type && pred_type != Bool) {
         class_table->semant_error(class_table->lookup(current_class)->class_node->get_filename(), this)
-            << "Predicate of conditional does not have type Bool.\n";
+            << "Predicate of 'if' does not have type Bool.\n";
     }
 
     then_exp->typecheck(class_table, env, current_class);
@@ -1487,14 +1529,48 @@ void typcase_class::typecheck(ClassTable *class_table, Environment *env, Symbol 
     expr->typecheck(class_table, env, current_class);
     Symbol result_type = No_type;
 
-    for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
-        Case c_i = cases->nth(i);
-        c_i->typecheck(class_table, env, current_class);
+    Symbol filename = class_table->lookup(current_class)->class_node->get_filename();
 
+    // Track seen branch typs for duplicate detection
+    std::unordered_set<Symbol> seen_branch_types;
+
+    for (int i = cases->first(); cases->more(i); i = cases->next(i)) {
+        Case cur_case = cases->nth(i);
+        Symbol cur_branch_type = cur_case->get_type_decl();
+        Symbol cur_branch_name = cur_case->get_name();
+
+        if (cur_branch_type == SELF_TYPE) {
+            class_table->semant_error(filename, cur_case)
+                << "Identifier " << cur_branch_name << " declared with type SELF_TYPE in case branch.\n";
+            continue;
+        }
+        if (cur_branch_name == self) {
+            class_table->semant_error(filename, cur_case)
+                << "'self' bound in 'case'.\n";
+            continue;
+        }
+        if (seen_branch_types.count(cur_branch_type)) {
+            class_table->semant_error(filename, cur_case)
+                << "Duplicate branch " << cur_branch_type << " in case statement.\n";
+            continue;
+        }
+        seen_branch_types.insert(cur_branch_type);
+
+        // Validate cur_branch_type
+        InheritanceNode *node = class_table->lookup_in_context(cur_branch_type, current_class);
+        if (node == NULL) {
+            class_table->semant_error(filename, cur_case)
+                << "Class " << cur_branch_type << " of case branch is undefined.\n";
+            continue;
+        }
+
+        // Branch is valid, now we'll check its body and join the result type.
+        cur_case->typecheck(class_table, env, current_class);
+        Symbol branch_type = cur_case->get_type();
         if (result_type == No_type) {
-            result_type = c_i->get_type();
+            result_type = branch_type;
         } else {
-            result_type = class_table->class_join_in_context(result_type, c_i->get_type(), current_class);
+            result_type = class_table->class_join_in_context(result_type, branch_type, current_class);
         }
     }
 
